@@ -1,148 +1,101 @@
-import imageio
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
-#import seaborn as sns
-import math
 
+def clear_ax_extra(ax):
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.set_aspect('equal')
 
-def canvas2rgb_array(canvas):
-    # https://stackoverflow.com/questions/7821518/matplotlib-save-plot-to-numpy-array
-    """Adapted from: https://stackoverflow.com/a/21940031/959926"""
-    canvas.draw()
-    buf = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
-    ncols, nrows = canvas.get_width_height()
-    scale = int(round(math.sqrt(buf.size / 3 / nrows / ncols)))
-    return buf.reshape(scale * nrows, scale * ncols, 3)
+def draw_hyperparams(ax, hyperparams):
+    x_pos = (0.25, 0.25, 0.25, 0.25)
+    y_pos = (0.8, 0.7, 0.6, 0.5)
+    #ax.text(0.25, 0.90, "HYPERPARAMETERS", bbox=dict(facecolor='red', alpha=0.5))
+    ax.text(0.25, 0.90, "HYPERPARAMETERS", fontweight='bold')
+    names = ["l1 = ", "l2 = ", "l3 = ", "l4 = "]
+    for idx, param in enumerate(hyperparams):
+        ax.text(x_pos[idx], y_pos[idx], names[idx] + str(param))
+    clear_ax_extra(ax)
 
+def draw_equations(ax, equations, z_dim=3):
+    x_pos = 0.25
+    y_pos = 0.9
+    dy = 0.055
+    eq_interval = z_dim + 1
+    for idx, eq in enumerate(equations):
+        if idx % eq_interval == 0:
+            #ax.text(x_pos, y_pos, eq, bbox=dict(facecolor='red', alpha=0.5))
+            #ax.text(x_pos, y_pos, eq, color='red')
+            ax.text(x_pos, y_pos, eq, color='red', fontweight='bold')
+        else:
+            #ax.text(x_pos, y_pos, eq, fontsize='small')
+            ax.text(x_pos, y_pos, eq)
+        y_pos -= dy
+    clear_ax_extra(ax)
 
-def get_fig(x1, x1_pred, x2, x2_pred, num, ylims1, ylims2):
-    fig, axes = plt.subplots(num, 2, figsize=(5, 5))
-    for i in range(num):
-        axes[i][0].plot(x1[i], color='blue')
-        axes[i][0].plot(x1_pred[i], color='red')
-        axes[i][1].plot(x2[i], color='blue')
-        axes[i][1].plot(x2_pred[i], color='red')
-        axes[i][0].set_ylim([ylims1[0][i], ylims1[1][i]])
-        axes[i][1].set_ylim([ylims2[0][i], ylims2[1][i]])
-    plt.subplots_adjust(wspace=0)
+# zs shape: (num hyperparams x exp batch_size x trajectory length x 3)
+def plot_3d_trajectory(fpath, zs, hyperparams, equations, figsize=None):
+    num_hps, ebs, T, z_dim = zs.shape
+    num_cols = ebs + 2 # first col = hyperparams, then exp batch, then equations
+    if figsize is None:
+        fig = plt.figure(figsize=(4 * ebs, (10 / 3) * num_hps), dpi=300)
+    else:
+        fig = plt.figure(figsize=figsize, dpi=300)
+    ct = 1
+    for i in range(num_hps):
+        for j in range(-1, ebs + 1):
+            # first column: hyperparams
+            if j == -1:
+                ax = fig.add_subplot(num_hps, num_cols, ct)
+                draw_hyperparams(ax, hyperparams[i])
+            # last column: equations
+            elif j == ebs:
+                ax = fig.add_subplot(num_hps, num_cols, ct)
+                draw_equations(ax, equations[i], z_dim=z_dim)
+            # in between: trajectories
+            else:
+                ax = fig.add_subplot(num_hps, ebs + 2, ct, projection='3d')
+                ax.plot(zs[i][j][:,0], zs[i][j][:,1], zs[i][j][:,2])
+            ct += 1
+    fig.subplots_adjust(wspace=0.0, hspace=0.0)
+    plt.savefig(fpath)
     plt.close()
-    return fig
 
-
-def make_gif(x1, x1_pred, x2, x2_pred, T, num, fpath, duration=0.1):
-    x1 = np.swapaxes(x1, 0, 1)
-    x1_pred = np.swapaxes(x1_pred, 0, 1)
-    x2 = np.swapaxes(x2, 0, 1)
-    x2_pred = np.swapaxes(x2_pred, 0, 1)
-    images = []
-    y_min1, y_max1 = np.min(x1, axis=0), np.max(x1, axis=0)
-    y_min1, y_max1 = np.min(y_min1, axis=1), np.max(y_max1, axis=1)
-    y_min2, y_max2 = np.min(x2, axis=0), np.max(x2, axis=0)
-    y_min2, y_max2 = np.min(y_min2, axis=1), np.max(y_max2, axis=1)
-    for i in range(T):
-        the_fig = get_fig(x1[i], x1_pred[i], x2[i], x2_pred[i], num, (y_min1, y_max1), (y_min2, y_max2))
-        data = canvas2rgb_array(the_fig.canvas)
-        images.append(data)
-    imageio.mimsave(fpath, images, duration=duration)
-
-def plot_latent_trajectory(z, z_true, num_plot, fig_path, figsize=(10, 30)):
-    fig = plt.figure(figsize=figsize)
-    fig.tight_layout()
-    start = 0
-    for i in range(num_plot):
-        ax = fig.add_subplot(num_plot, 2, i + 1, projection='3d')
-        ax.view_init(60, 35)
-        ax.plot(z[i][:,0][start:], z[i][:,1][start:], z[i][:,2][start:], color='red', label='Model')
-        ax.plot(z_true[i][:,0][start:], z_true[i][:,1][start:], z_true[i][:,2][start:], color='blue', label='Ground Truth')
-        ax.set_title("Trajectory " + str(i + 1))
-    plt.legend(loc='best')
-    if fig_path is not None:
-        plt.savefig(fig_path)
-        plt.close()
+# zs shape: (num hyperparams x exp batch_size x trajectory length x 1)
+def plot_1d_trajectory(fpath, z_true, zs, hyperparams, equations, figsize=None):
+    num_hps, ebs, T, z_dim = zs.shape
+    num_cols = ebs + 2 # first col = hyperparams, then exp batch, then equations
+    if figsize is None:
+        fig = plt.figure(figsize=(4 * ebs, (10 / 3) * num_hps), dpi=300)
     else:
-        plt.show()
-
-def plot_hankel_latent_trajectory(z, z_true, fig_path, figsize=(10, 30), view_inits=None):
-    # z_true : samples, comps, zdim
-    fig = plt.figure(figsize=figsize)
-    fig.tight_layout()
-    ax = fig.add_subplot(1, 4, 1, projection='3d')
-    if view_inits is not None:
-        ax.view_init(view_inits[0], view_inits[1])
-    ax.plot(z[:,0], z[:,1], z[:,2], color='red', label='Model')
-    ax.set_title("Model")
-    hankels = ['x', 'y', 'z']
-    for i in range(z_true.shape[-1]):
-        ax = fig.add_subplot(1, 4, i + 2, projection='3d')
-        ax.plot(z_true[:, 0][:, i], z_true[:, 1][:, i], z_true[:, 2][:, i], color='blue')
-        ax.set_title(hankels[i] + " embedding of hankel")
-    if fig_path is not None:
-        plt.savefig(fig_path)
-        plt.close()
-    else:
-        plt.show()
-
-def plot_single_latents(z, z_true, fig_path, figsize=(10, 30), view_inits=None):
-    fig = plt.figure(figsize=figsize)
-    fig.tight_layout()
-    ax = fig.add_subplot(1, 3, 1, projection='3d')
-    if view_inits is not None:
-        ax.view_init(view_inits[0], view_inits[1])
-    start = 0
-    ax.plot(z[:,0][start:], z[:,1][start:], z[:,2][start:], color='red', label='Model')
-    ax.plot(z_true[:,0][start:], z_true[:,1][start:], z_true[:,2][start:], color='blue', label='Ground Truth')
-    ax.set_title("Both")
-
-    ax = fig.add_subplot(1, 3, 2, projection='3d')
-    ax.plot(z[:,0][start:], z[:,1][start:], z[:,2][start:], color='red', label='Model')
-    ax.set_title("Model")
-
-    ax = fig.add_subplot(1, 3, 3, projection='3d')
-    ax.plot(z_true[:,0][start:], z_true[:,1][start:], z_true[:,2][start:], color='blue', label='Ground Truth')
-    ax.set_title("Ground Truth")
-
-    plt.legend(loc='best')
-    if fig_path is not None:
-        plt.savefig(fig_path)
-        plt.close()
-    else:
-        plt.show()
-
-def get_pendulum_fig(x1, x1_true):
-    fig, axes = plt.subplots(1, 2, figsize=(5, 5))
-    axes[0].imshow(x1, cmap='gray')
-    axes[1].imshow(x1_true, cmap='gray')
-    axes[0].set_title("pred")
-    axes[1].set_title("ground truth")
-    """
-    for i in range(num):
-        axes[i][0].plot(x1[i], color='blue')
-        axes[i][0].plot(x1_pred[i], color='red')
-        axes[i][1].plot(x2[i], color='blue')
-        axes[i][1].plot(x2_pred[i], color='red')
-        axes[i][0].set_ylim([ylims1[0][i], ylims1[1][i]])
-        axes[i][1].set_ylim([ylims2[0][i], ylims2[1][i]])
-    """
-    plt.subplots_adjust(wspace=0)
+        fig = plt.figure(figsize=figsize, dpi=300)
+    ct = 1
+    for i in range(num_hps):
+        for j in range(-1, ebs + 1):
+            # first column: hyperparams
+            if j == -1:
+                ax = fig.add_subplot(num_hps, num_cols, ct)
+                draw_hyperparams(ax, hyperparams[i])
+            # last column: equations
+            elif j == ebs:
+                ax = fig.add_subplot(num_hps, num_cols, ct)
+                draw_equations(ax, equations[i], z_dim=z_dim)
+            # in between: trajectories
+            else:
+                ax = fig.add_subplot(num_hps, ebs + 2, ct)
+                if (i == num_hps - 1) and (j == ebs - 1):
+                    ax.plot(zs[i][j][:,0], color='red', label='P')
+                    ax.plot(z_true, color='blue', label='GT')
+                    ax.legend(loc='best')
+                else:
+                    ax.plot(zs[i][j][:,0], color='red')
+                    ax.plot(z_true, color='blue')
+            ct += 1
+    fig.subplots_adjust(wspace=0.0, hspace=0.0)
+    plt.savefig(fpath)
     plt.close()
-    return fig
-
-def make_pendulum_gif(x, x_true, fpath, duration=0.1):
-    #x1 = np.swapaxes(x1, 0, 1)
-    #x1_pred = np.swapaxes(x1_pred, 0, 1)
-    #x2 = np.swapaxes(x2, 0, 1)
-    #x2_pred = np.swapaxes(x2_pred, 0, 1)
-    #images = []
-    #y_min1, y_max1 = np.min(x1, axis=0), np.max(x1, axis=0)
-    #y_min1, y_max1 = np.min(y_min1, axis=1), np.max(y_max1, axis=1)
-    #y_min2, y_max2 = np.min(x2, axis=0), np.max(x2, axis=0)
-    #y_min2, y_max2 = np.min(y_min2, axis=1), np.max(y_max2, axis=1)
-    T = min(x.shape[0], x_true.shape[0])
-    images = []
-    for i in range(T):
-        the_fig = get_pendulum_fig(x[i], x_true[i])
-        data = canvas2rgb_array(the_fig.canvas)
-        images.append(data)
-    imageio.mimsave(fpath, images, duration=duration)

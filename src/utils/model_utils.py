@@ -8,7 +8,6 @@ from scipy.integrate import odeint
 # Code taken from:
 # https://github.com/kpchamp/SindyAutoencoders/blob/master/src/sindy_utils.py
 
-
 def library_size(n, poly_order, use_sine=False, include_constant=True):
     l = 0
     for k in range(poly_order+1):
@@ -18,7 +17,6 @@ def library_size(n, poly_order, use_sine=False, include_constant=True):
     if not include_constant:
         l -= 1
     return l
-
 
 def sindy_library(X, poly_order=3, include_sine=False, include_constant=True):
     # batch x latent dim
@@ -70,14 +68,15 @@ def sindy_library(X, poly_order=3, include_sine=False, include_constant=True):
             index += 1
 
     return library
-
-
+    
 def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, include_constant=True):
     # timesteps x latent dim
     l = library_size(n, poly_order, include_sine, include_constant)
-    index = 1
+    str_lib = []
+    if include_constant:
+        index = 1
+        str_lib = ['']
     X = ['x', 'y', 'z']
-    str_lib = ['1']
     
     for i in range(n):
         str_lib.append(X[i])
@@ -114,163 +113,20 @@ def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, incl
 
     return str_lib
 
-
 def get_equation(lib, coef, start):
     res = start
     for i in range(len(coef)):
         if coef[i] != 0:
             res += str(coef[i]) + lib[i] + ' + '
-    return res[:-2]
+    return res[:-2]    
 
+def sindy_coeffs_stats(sindy_coeffs):
+    return torch.mean(sindy_coeffs, dim=0), torch.std(sindy_coeffs, dim=0)
 
-def init_weights(m):
-    if isinstance(m, nn.Linear):
-        nn.init.xavier_uniform_(m.weight)
-        if m.bias is not None:
-            m.bias.data.fill_(0.01)
-
-
-def load_batch(data_set, batch, device):
-    if data_set == 'arousal1':
-        return load_arousal1_batch(batch, device)
-    elif data_set == 'pendulum':
-        return load_pendulum_batch(batch, device)
-    elif data_set == 'delay_lorenz':
-        return load_delay_lorenz_batch(batch, device)
-    elif data_set == 'stochastic_lorenz':
-        return load_stochastic_lorenz_batch(batch, device)
-    elif data_set == 'stochastic_lorenz_flex':
-        return load_stochastic_lorenz_flex_batch(batch, device)
-    elif data_set == 'delay_lorenz_flex':
-        return load_delay_lorenz_flex_batch(batch, device)
-    elif data_set == 'hankel_lorenz':
-        return load_hankel_lorenz_batch(batch, device)
-    elif data_set == 'delay_lorenz_big':
-        return load_delay_lorenz_big_batch(batch, device)
-    elif data_set == 'delay_lorenz_simple':
-        return load_delay_lorenz_simple_batch(batch, device)
-    elif data_set == 'delay_lorenz_noise_simple':
-        return load_delay_lorenz_noise_simple_batch(batch, device)
-    elif data_set == 'delay_lorenz_simple2':
-        return load_delay_lorenz_simple2_batch(batch, device)
-    elif data_set == 'delay_lorenz_simple_all':
-        return load_delay_lorenz_simple_all_batch(batch, device)
-    elif data_set == 'lorenz2':
-        return load_delay_lorenz2_batch(batch, device)
-    elif data_set == 'lorenz_simple':
-        return load_lorenz_simple_batch(batch, device)
-    elif data_set == 'lorenz_simple_derivative':
-        return load_lorenz_simple_derivative_batch(batch, device)
-
-
-def load_arousal1_batch(batch, device):
-    x1, x2 = batch
-    x1 = x1.type(torch.FloatTensor).to(device)
-    x2 = x2.type(torch.FloatTensor).to(device)
-    x1_next = x1
-    x2_next = x2
-    return x1, x2, x1_next, x2_next
-
-
-def load_delay_lorenz_batch(batch, device):
-    (x1, x1_next, x2, x2_next), (z, z_next) = batch
-    x1 = x1.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2 = x2.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    x1_next = x1_next.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2_next = x2_next.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    return (x1, x1_next, x2, x2_next), (z, z_next)
-
-def load_stochastic_lorenz_batch(batch, device):
-    (x1, x1_next, x2, x2_next), (z, z_next) = batch
-    x1 = x1.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2 = x2.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    x1_next = x1_next.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2_next = x2_next.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    return (x1, x1_next, x2, x2_next), (z, z_next)
-
-def load_stochastic_lorenz_flex_batch(batch, device):
-    (x1, x1_next, x2, x2_next), (z, z_next), taus = batch
-    x1 = x1.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2 = x2.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    x1_next = x1_next.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2_next = x2_next.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    taus = taus.type(torch.FloatTensor).to(device)
-    return (x1, x1_next, x2, x2_next), (z, z_next), taus
-
-def load_delay_lorenz_flex_batch(batch, device):
-    (x1, x1_next, x1_next_next, x2, x2_next, x2_next_next), (z, z_next, z_next_next) = batch
-    x1 = x1.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2 = x2.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    x1_next = x1_next.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2_next = x2_next.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    x1_next_next = x1_next_next.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2_next_next = x2_next_next.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    return (x1, x1_next, x1_next, x2, x2_next, x2_next), (z, z_next, z_next_next)
-
-def load_hankel_lorenz_batch(batch, device):
-    (x1, x1_next, x2, x2_next), (z, z_next) = batch
-    x1 = x1.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2 = x2.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    x1_next = x1_next.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2_next = x2_next.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    return (x1, x1_next, x2, x2_next), (z, z_next)
-
-def load_delay_lorenz_big_batch(batch, device):
-    return load_delay_lorenz_batch(batch, device)
-
-def load_lorenz2_batch(batch, device):
-    (x1, x1_next, x2, x2_next), (z, z_next) = batch
-    x1 = x1.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2 = x2.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    x1_next = x1_next.reshape(x1.size(0), -1).type(torch.FloatTensor).to(device)
-    x2_next = x2_next.reshape(x2.size(0), -1).type(torch.FloatTensor).to(device)
-    z = z.reshape(z.size(0), -1).type(torch.FloatTensor).to(device)
-    z_next = z_next.reshape(z.size(0), -1).type(torch.FloatTensor).to(device)
-    return (x1, x1_next, x2, x2_next), (z, z_next)
-
-def load_delay_lorenz_simple_batch(batch, device):
-    (_), (z, z_next) = batch
-    z = z.type(torch.FloatTensor).to(device)[:, :, 0]
-    z_next = z_next.type(torch.FloatTensor).to(device)[:, :, 0]
-    #z = z.type(torch.FloatTensor).to(device)[:, :, 1]
-    #z_next = z_next.type(torch.FloatTensor).to(device)[:, :, 1]
-    return (None, None, None, None), (z, z_next)
-
-def load_delay_lorenz_simple_all_batch(batch, device):
-    (_), (z, z_next) = batch
-    z = z.type(torch.FloatTensor).to(device).view(z.size(0), -1)
-    z_next = z_next.type(torch.FloatTensor).to(device).view(z_next.size(0), -1)
-    return (None, None, None, None), (z, z_next)
-
-def load_delay_lorenz_simple2_batch(batch, device):
-    (_), (z, z_next, z_next2) = batch
-    z = z.type(torch.FloatTensor).to(device)[:, :, 0]
-    z_next = z_next.type(torch.FloatTensor).to(device)[:, :, 0]
-    z_next2 = z_next2.type(torch.FloatTensor).to(device)[:, :, :, 0]
-    return (None, None, None, None), (z, z_next, z_next2)
-
-def load_lorenz_simple_batch(batch, device):
-    _, (z, z_next) = batch
-    z = z.type(torch.FloatTensor).to(device)
-    z_next = z_next.type(torch.FloatTensor).to(device)
-    return (None, None, None, None), (z, z_next)
-
-def load_delay_lorenz_noise_simple_batch(batch, device):
-    (_), (z, z_next) = batch
-    z = z.type(torch.FloatTensor).to(device)[:, :, 0]
-    z_next = z_next.type(torch.FloatTensor).to(device)[:, :, 0]
-    return (None, None, None, None), (z, z_next)
-
-def load_lorenz_simple_derivative_batch(batch, device):
-    _, (z, dz, z_next) = batch
-    z = z.type(torch.FloatTensor).to(device)
-    dz = dz.type(torch.FloatTensor).to(device)
-    z_next = z_next.type(torch.FloatTensor).to(device)
-    return (None, None, None, None), (z, dz, z_next)
-
-def load_pendulum_batch(batch, device):
-    (x, x_next), (z, ) = batch
-    x = x.type(torch.FloatTensor).to(device)
-    x_next = x_next.type(torch.FloatTensor).to(device)
-    z = z.type(torch.FloatTensor).to(device)
-    return (x, x_next), (z, )
+def init_weights(layer):
+    if isinstance(layer, nn.Linear):
+        nn.init.xavier_uniform(layer.weight)
+    elif isinstance(layer, nn.LayerNorm):
+        layer.bias.data.fill_(0.01)
+    elif isinstance(layer, nn.BatchNorm1d):
+        layer.bias.data.fill_(0.01)

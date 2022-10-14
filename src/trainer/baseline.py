@@ -1,56 +1,157 @@
 import torch
 import numpy as np
 from tqdm import tqdm
+from src.utils.other import save_model
 
-def train(net, args, train_loader, train_board, optim, epoch, clip, beta, just_mean):
+def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
+          device, initial_epoch, epochs, beta_init, beta_increment, checkpoint_interval,
+          threshold_timer, beta_max, weight_decay, noise_threshold, coef_threshold): 
+
     net.train()
 
-    # losses
-    recon_losses = np.zeros([4])
-    kl_loss = 0
+    if beta_increment is None:
+        beta_increment = beta_max / 100.0
+    beta = 0
+    for e in range(initial_epoch, epochs + initial_epoch):
+        recons, klds = 0, 0
+        for i, (x, x_dot) in enumerate(trainloader):
+            x = x.type(torch.FloatTensor).to(device)
+            x_dot = x_dot.type(torch.FloatTensor).to(device)
 
-    # for each batch
-    for batch in tqdm(train_loader, desc="Training", total=len(train_loader), dynamic_ncols=True):
-        (batch_recon, batch_kl), _ = net(batch, just_mean=just_mean)
-        batch_loss = 0
-        for i in range(len(batch_recon)):
-            batch_loss += batch_recon[i]
-            recon_losses[i] += batch_recon[i].item()
-        batch_loss += batch_kl * beta
-        kl_loss += batch_kl.item()
+            # one gradient step
+            if model_type == "HyperSINDy1":
+                recon, kld = train_hyper1(net, optim, x, x_dot, beta, weight_decay, device)
+            elif model_type == "HyperSINDy2":
+                recon, kld = train_hyper2(net, optim, x, x_dot, beta, weight_decay, device)
+            elif model_type == "HyperSINDy22":
+                recon, kld = train_hyper22(net, optim, x, x_dot, beta, weight_decay, device)
+            elif model_type == "HyperSINDy3":
+                recon, kld = train_hyper3(net, optim, x, x_dot, beta, weight_decay, device)
+            elif model_type == "SINDy":
+                recon, kld = train_sindy(net, optim, x, x_dot, weight_decay, device)
 
-        # backprop
-        optim.zero_grad()
-        batch_loss.backward()
-        if clip is not None:
-            torch.nn.utils.clip_grad_norm_(net.parameters(), clip)
-        optim.step()
+            recons += recon
+            klds += kld
 
-        if args.sequential_threshold is not None:
-            #pass
-            net.threshold_mask[torch.abs(net.sindy_coefficients) < net.sequential_threshold] = 0
-            #net.threshold_mask[torch.abs(net.sindy_coefficients) > 1.0] = 1.0 / net.sindy_coefficients[torch.abs(net.sindy_coefficients) > 1.0].detach().clone().to(net.fc_mu.weight.device)
+        # log losses
+        log_losses(board, recons / len(trainloader), klds / len(trainloader), e)
+
+        # threshold
+        if (e % threshold_timer == 0) and (e != 0) and (beta == beta_max):
+            threshold_more = e + threshold_timer * 4 >= epochs + initial_epoch
+            update_threshold_mask(net, model_type, device, coef_threshold, noise_threshold, threshold_more)
+
+        # save
+        if (e + 1) % checkpoint_interval == 0:
+            save_model(cp_path, net, optim, scheduler, e)
+
+        scheduler.step()
+        beta = update_beta(beta, beta_increment, beta_max)
+
+    save_model(cp_path, net, optim, scheduler, e)
+
+    return net, optim, scheduler
+
+def update_threshold_mask(net, model_type, device, threshold1, threshold2, threshold_more):
+    if model_type == 'SINDy':
+        net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
+    elif model_type == 'HyperSINDy1':
+        coefs = net.sindy_coeffs_full(batch_size=500, device=device)
+        mean_coefs = torch.mean(coefs, dim=0)
+        net.threshold_mask[torch.abs(mean_coefs) < threshold1] = 0
+    elif model_type == 'HyperSINDy2':
+        coefs = torch.mean(net.sindy_coeffs_full(batch_size=500, device=device), dim=0)
+        net.threshold_mask[torch.abs(coefs) < threshold1] = 0
+        net.threshold_mask[0] = 1
+    elif model_type == 'HyperSINDy22':
+        net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
+        noise_coefs = net.sample_transition(batch_size=500, device=device)
+        mean_coefs = torch.mean(noise_coefs, dim=0)            
+        if threshold_more:
+            ab_coefs = torch.abs(mean_coefs)
+            not_max = ~ab_coefs.eq(torch.max(ab_coefs, dim=0)[0])
+            net.threshold_mask_noise[not_max] = 0
+        else:
+            net.threshold_mask_noise[torch.abs(mean_coefs) < threshold2] = 0
+    elif model_type == 'HyperSINDy3':
+        net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
+        noise_coefs = net.sample_transition(batch_size=500, device=device)
+        mean_coefs = torch.mean(noise_coefs, dim=0)
+        net.threshold_mask_noise[torch.abs(mean_coefs) < threshold2] = 0
 
 
-    log_losses(train_board, recon_losses / len(train_loader), kl_loss / len(train_loader), epoch)
+def train_hyper3(net, optim, x, x_dot, beta, weight_decay, device):
+    x_dot_pred, noise_coeffs = net(x, device)
+    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+    kld = net.kl(noise_coeffs)
+    masked_coeffs = net.sindy_coefficients * net.threshold_mask
+    reg1 = (masked_coeffs ** 2).sum() * weight_decay
+    masked_coeffs = noise_coeffs * net.threshold_mask_noise
+    reg2 = (masked_coeffs ** 2).sum(1).sum(1).mean() * weight_decay
+    loss = recon + kld * beta + reg1 + reg2
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+    return recon.item(), kld.item()
 
+def train_hyper22(net, optim, x, x_dot, beta, weight_decay, device):
+    x_dot_pred, noise_coeffs = net(x, device)
+    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+    kld = net.kl(noise_coeffs)
+    masked_coeffs = net.sindy_coefficients * net.threshold_mask
+    reg1 = (masked_coeffs ** 2).sum() * weight_decay
+    masked_coeffs = noise_coeffs * net.threshold_mask_noise
+    reg2 = (masked_coeffs ** 2).sum(1).sum(1).mean() * weight_decay
+    loss = recon + kld * beta + reg1 + reg2
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+    return recon.item(), kld.item()
 
-def test(net, test_loader, test_board, epoch, timesteps, beta, just_mean):
-    net.eval()
-    recon_losses = np.zeros([4])
-    kl_loss = 0
-    for batch in tqdm(test_loader, desc="Testing", total=len(test_loader), dynamic_ncols=True):
-        (batch_recon, batch_kl), _ = net(batch, just_mean=just_mean)
-        for i in range(len(batch_recon)):
-            recon_losses[i] += batch_recon[i].item()
-        kl_loss += batch_kl.item()
-    log_losses(test_board, recon_losses / len(test_loader), kl_loss / len(test_loader), epoch)
+def train_hyper2(net, optim, x, x_dot, beta, weight_decay, device):
+    x_dot_pred, sindy_coeffs_full, sindy_coeffs = net(x, device)
+    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+    kld = net.kl(sindy_coeffs)
+    masked_coeffs = sindy_coeffs_full * net.threshold_mask
+    reg = (masked_coeffs ** 2).sum(1).sum(1).mean(0) * weight_decay
+    loss = recon + kld * beta + reg
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+    return recon.item(), kld.item()
+
+def train_hyper1(net, optim, x, x_dot, beta, weight_decay, device):
+    x_dot_pred, sindy_coeffs = net(x, device)
+    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+    kld = net.kl(sindy_coeffs)
+    masked_coeffs = sindy_coeffs * net.threshold_mask
+    reg = (masked_coeffs ** 2).sum(1).sum(1).mean(0) * weight_decay
+    loss = recon + kld * beta + reg
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+    return recon.item(), kld.item()
+
+def train_sindy(net, optim, x, x_dot, weight_decay, device):
+    x_dot_pred, sindy_coeffs = net(x, device)
+    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+    masked_coeffs = sindy_coeffs * net.threshold_mask
+    regularization = (masked_coeffs ** 2).sum() * weight_decay
+    loss = recon + regularization
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+    return recon, 0
 
 
 def log_losses(board, recon, kl, epoch):
     # tensorboard
-    for i in range(len(recon)):
-        board.add_scalar("x " + str(i + 1) + " recon", recon[i], epoch)
-    board.add_scalar("kl", kl, epoch)
-    #for i in range(len(kl)):
-    #    board.add_scalar("kld " + str(i + 1), kl[i], epoch)
+    board.add_scalar("(x_dot_pred - x_dot) ** 2", recon, epoch)
+    board.add_scalar("kld", kl, epoch)
+
+
+def update_beta(beta, beta_increment, beta_max):
+    beta += beta_increment
+    if beta > beta_max:
+        beta = beta_max
+    return beta

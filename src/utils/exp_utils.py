@@ -3,275 +3,92 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import numpy as np
 from src.utils.other import *
-from src.utils.plotting import make_gif, plot_latent_trajectory, plot_hankel_latent_trajectory, plot_single_latents, make_pendulum_gif
-
-def exp1(args, net, save_path):
-    # val data (will refer to the val data as test data)
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, num_workers=1)
-    net.eval()
-    batch = next(iter(test_loader))
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next) = batch
-    _, (x1_hat, x2_hat, z) = net(batch, just_mean=exp_just_mean)
-    #_, (x1_hat, x2_hat, x1_bar, x2_bar, z1, z2) = net(batch, just_mean=args.just_mean)
-    x1_hat = x1_hat.reshape(-1, x1_next.size(1), args.u_dim).detach().cpu().numpy()
-    x2_hat = x2_hat.reshape(-1, x2_next.size(1), args.u_dim).detach().cpu().numpy()
-    #x1_bar = x1_bar.reshape(-1, x1_next.size(1), args.u_dim).detach().cpu().numpy()
-    #x2_bar = x2_bar.reshape(-1, x2_next.size(1), args.u_dim).detach().cpu().numpy()
-    make_gif(x1_next.numpy(), x1_hat, x2_next.numpy(), x2_hat, x1_hat.shape[1],
-             args.num_plot, save_path, duration=args.gif_duration) 
-    #make_gif(x1_next.numpy(), x1_bar, x2_next.numpy(), x2_bar, x1_hat.shape[1],
-    #         args.num_plot, save_path, duration=args.gif_duration) 
-
-def exp2(args, net, save_path):
-    # val data (will refer to the val data as test data)
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, num_workers=1)
-    net.eval()
-    batch = next(iter(test_loader), just_mean=args.exp_just_mean)
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next) = batch
-    #_, (x1_hat, x2_hat, z) = net(batch, just_mean=True)
-    _, (x1_hat, x2_hat, x1_bar, x2_bar, z, z2) = net(batch, just_mean=args.just_mean)
-    z = z.reshape(-1, z_true_next.size(1), args.z_dim).detach().cpu().numpy()
-    z_true_next = z_true_next.reshape(-1, z_true_next.size(1), args.z_dim).detach().cpu().numpy()
-    plot_latent_trajectory(z, z_true_next, args.num_plot, save_path)
-
-def exp3(args, net, save_path):
-    net.eval()
-    # val data (will refer to the val data as test data)
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next) = batch
-
-    device = args.device
-    x1 = x1[:, 0].type(torch.FloatTensor).to(device)
-    x2 = x2[:, 0].type(torch.FloatTensor).to(device)
-
-    z = net.sample_trajectory(args.timesteps, just_mean=args.exp_just_mean, x1=x1, x2=x2)
-    z_true = z_true.detach().cpu().numpy()
-    plot_latent_trajectory(z, z_true, args.num_plot, save_path)
+from src.utils.plotting import *
+from src.utils.model_utils import equation_sindy_library, sindy_coeffs_stats, get_equation
 
 
-def exp4(args, net, save_path):
-    net.eval()
-    device = args.device
-    x1_hats, x2_hats = [], []
-    z = torch.randn([args.batch_size, args.z_dim], device=device)
-    z = net.sample_trajectory(args.exp_timesteps - 1, just_mean=args.exp_just_mean, z=z)
-    plot_latent_trajectory(z, z, args.num_plot, save_path)
+# returns: batch_size x ts x z_dim
+def sample_trajectory(net, device, init_cond, batch_size=10, dt=1e-2, ts=5000):
+    zc = torch.from_numpy(init_cond).type(torch.FloatTensor).to(device)
+    zc = torch.stack([zc for _ in range(batch_size)], dim=0)
+    zs = []
+    for i in range(ts):
+        zc = zc + net(zc, device)[0] * dt
+        zs.append(zc)
+    zs = torch.stack(zs, dim=0)
+    zs = torch.transpose(zs, 0, 1)
+    return zs.detach().cpu().numpy()
+
+def update_equation_list(equations, library, coefs, starts, z_dim):
+    for i in range(z_dim):
+        equations.append(get_equation(library, coefs[:,i], starts[i]))
+
+def get_equations(net, model_type, device, batch_size, z_dim, poly_order, include_constant, include_sine):
+    starts = ["X' = ", "Y' = ", "Z' = "]
+    library = equation_sindy_library(z_dim, poly_order,
+                                         include_constant=include_constant,
+                                         include_sine=include_sine)
+    equations = []
+    if model_type == "HyperSINDy1":
+        coefs = net.get_masked_coefficients(batch_size=batch_size, device=device)
+        mean_coefs, std_coefs = sindy_coeffs_stats(coefs)
+        equations.append("MEAN")
+        update_equation_list(equations, library, mean_coefs.detach().cpu().numpy(), starts, z_dim)
+        equations.append("STD")
+        update_equation_list(equations, library, std_coefs.detach().cpu().numpy(), starts, z_dim)
+    elif model_type == "HyperSINDy2":
+        coefs = net.get_masked_coefficients(batch_size=batch_size, device=device)
+        mean_coefs, std_coefs = sindy_coeffs_stats(coefs)
+        equations.append("MEAN")
+        update_equation_list(equations, library, mean_coefs.detach().cpu().numpy(), starts, z_dim)
+        equations.append("STD")
+        update_equation_list(equations, library, std_coefs.detach().cpu().numpy(), starts, z_dim)
+    elif model_type == "HyperSINDy3" or model_type == "HyperSINDy22":
+        sindy_coefs = net.sindy_coefficients * net.threshold_mask
+        noise_coefs = net.sample_transition(batch_size=batch_size, device=device) * net.threshold_mask_noise
+        mean_true_coefs = torch.mean(sindy_coefs + noise_coefs, dim=0)
+        equations.append("DETERMINISTIC + NOISE")
+        update_equation_list(equations, library, mean_true_coefs.detach().cpu().numpy(), starts, z_dim)
+        equations.append("DETERMINISTIC")
+        update_equation_list(equations, library, sindy_coefs.detach().cpu().numpy(), starts, z_dim)
+        mean_coefs, std_coefs = sindy_coeffs_stats(noise_coefs)
+        equations.append("NOISE MEAN")
+        update_equation_list(equations, library, mean_coefs.detach().cpu().numpy(), starts, z_dim)
+        equations.append("NOISE STD")
+        update_equation_list(equations, library, std_coefs.detach().cpu().numpy(), starts, z_dim)
+    elif model_type == "SINDy":
+        sindy_coefs = net.sindy_coefficients * net.threshold_mask
+        equations.append("SINDy")
+        update_equation_list(equations, library, sindy_coefs.detach().cpu().numpy(), starts, z_dim)
+    return equations
 
 
-def exp5(args, net, save_path):
-    net.eval()
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next) = batch
-    _, (x1_hat, x2_hat, z) = net(batch, just_mean=args.exp_just_mean)
-    z = z.detach().cpu().numpy()
-    z_true_next = z_true_next.detach().cpu().numpy()
-    plot_hankel_latent_trajectory(z, z_true_next, save_path, figsize=(10, 10))
 
-def exp6(args, net, save_path):
-    net.eval()
-    device = args.device
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next) = batch
-    x1 = x1[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    x2 = x2[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    #z = net.sample_trajectory(z_true_next.size(0) - 1, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z = net.sample_trajectory(args.exp_timesteps, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z_true_next = z_true_next.detach().cpu().numpy()
-    start, end = args.z_plot_start, args.z_plot_end
-    z = z[start:end]
-    #print(z)
-    z_true_next = z_true_next[start:end]
-    view_inits = None
-    if args.v1 is not None and args.v2 is not None:
-        view_inits = (args.v1, args.v2)
-    plot_hankel_latent_trajectory(z, z_true_next, save_path, figsize=(10, 10), view_inits=view_inits)
 
-def exp7(args, net, save_path):
-    net.eval()
-    # val data (will refer to the val data as test data)
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    _, (z_true, z_true_next) = batch
-    #_, (z_true, z_true_next, z_true_next2) = batch
 
-    device = args.device
-    #z_init = z_true.type(torch.FloatTensor).to(device)[0].unsqueeze(0) # 1 x 3
-    z_init = z_true.type(torch.FloatTensor).to(device)[:, :, 0][0].unsqueeze(0) # 1 x 3
-    #z_init = z_true.type(torch.FloatTensor).to(device)[0].unsqueeze(0) # 1 x 3
-    start, end = args.z_plot_start, args.z_plot_end
-    if start is None:
-        start = 0
-    if end is None:
-        end = 1 + args.exp_timesteps
-    z = net.sample_trajectory(args.exp_timesteps, just_mean=args.exp_just_mean, z=z_init)[0][start:end]
-    plot_hankel_latent_trajectory(z, z_true_next.detach().cpu().numpy(), save_path, figsize=(10, 10))
 
-def exp8(args, net, save_path):
-    net.eval()
-    #print(net.sindy_coefficients)
-    # val data (will refer to the val data as test data)
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    _, (z_true, z_true_next) = batch
 
-    device = args.device
-    z_true = z_true.type(torch.FloatTensor).to(device)[0].unsqueeze(0) # 1x3
 
-    z = net.sample_trajectory(args.timesteps, just_mean=args.exp_just_mean, z=z_true)[0]
-    z_true_next = z_true_next.detach().cpu().numpy()
-    start, end = args.z_plot_start, args.z_plot_end
-    if start is None:
-        start = 0
-    if end is None:
-        end = 1 + args.exp_timesteps
-    print(z)
-    #print(net.sindy_coefficients * net.threshold_mask)
-    plot_single_latents(z[start:end], z_true_next, save_path)
 
-def exp9(args, net, save_path):
-    net.eval()
-    device = args.device
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next) = batch
-    #x1 = x1[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    #x2 = x2[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    _, (_, _, z) = net(batch, just_mean=args.exp_just_mean, return_post=args.exp_return_post)
-    z = z.detach().cpu().numpy()
-    z_true_next = z_true_next.detach().cpu().numpy()
-    start, end = args.z_plot_start, args.z_plot_end
-    z = z[start:end]
-    z_true_next = z_true_next[start:end]
-    view_inits = None
-    if args.v1 is not None and args.v2 is not None:
-        view_inits = (args.v1, args.v2)
-    plot_hankel_latent_trajectory(z, z_true_next, save_path, figsize=(10, 10), view_inits=view_inits)
 
-def exp10(args, net, save_path):
-    net.eval()
-    device = args.device
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next) = batch
-    x1 = x1[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    x2 = x2[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    #z = net.sample_trajectory(z_true_next.size(0) - 1, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z = net.sample_trajectory(args.exp_timesteps, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z_true_next = z_true_next.detach().cpu().numpy()
-    start, end = args.z_plot_start, args.z_plot_end
-    z = z[start:end]
-    #print(z)
-    z_true_next = z_true_next[start:end]
-    view_inits = None
-    if args.v1 is not None and args.v2 is not None:
-        view_inits = (args.v1, args.v2)
-    else:
-        view_inits = None
-    plot_single_latents(z[start:end], z_true_next, save_path, view_inits=view_inits)
 
-def exp11(args, net, save_path):
-    net.eval()
-    device = args.device
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next, x1_nn, x2, x2_next, x2_nn), (z_true, z_true_next, z_nn) = batch
-    x1 = x1[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    x2 = x2[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    #z = net.sample_trajectory(z_true_next.size(0) - 1, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z = net.sample_trajectory(args.exp_timesteps, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z_true_next = z_true_next.detach().cpu().numpy()
-    start, end = args.z_plot_start, args.z_plot_end
-    z = z[start:end]
-    #print(z)
-    z_true_next = z_true_next[start:end]
-    view_inits = None
-    if args.v1 is not None and args.v2 is not None:
-        view_inits = (args.v1, args.v2)
-    plot_hankel_latent_trajectory(z, z_true_next, save_path, figsize=(10, 10), view_inits=view_inits)
 
-def exp12(args, net, save_path):
-    net.eval()
-    device = args.device
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next), (z_true, ) = batch
-    z_true = test_set.z.reshape(test_set.num_samples, test_set.timesteps)[0]
-    x1 = x1[0:args.num_plot].type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    #z = net.sample_trajectory(z_true_next.size(0) - 1, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z = net.sample_trajectory(args.exp_timesteps, just_mean=args.exp_just_mean, x1=x1)[0]
-    z_true = z_true.detach().cpu().numpy()
-    start, end = args.z_plot_start, args.z_plot_end
-    z = z[start:end]
-    #print(z)
-    z_true = z_true[start:end]
-    view_inits = None
-    if args.v1 is not None and args.v2 is not None:
-        view_inits = (args.v1, args.v2)
-    else:
-        view_inits = None
-    #print(z.shape)
-    #print(z_true.shape)
-    #"""
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    plt.plot(z_true, color='red')
-    plt.plot(z, color='blue')
-    plt.savefig(save_path)
+
+
+
+
+
+
+
+
+
+
+
+def plot_weight_distribution(fpath, coeffs):
+    coeffs = coeffs.detach().cpu().numpy()
+    sns.set()
+    fig, axes = plt.subplots(1, coeffs.shape[1], figsize=(10, 5))
+    for i in range(coeffs.shape[1]):
+        sns.histplot(coeffs[:,i], ax=axes[i], kde=True)
+    plt.savefig(fpath)
     plt.close()
-    #"""
-    #plot_single_latents(z[start:end], z_true_next, save_path, view_inits=view_inits)
-
-def exp13(args, net, save_path):
-    # val data (will refer to the val data as test data)
-    net.eval()
-    device = args.device
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next), (z_true, ) = batch
-    #z_true = test_set.z.reshape(test_set.num_samples, test_set.timesteps)[0]
-    x1 = x1[0:args.num_plot].type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    z = net.sample_trajectory(args.exp_timesteps, just_mean=args.exp_just_mean, x1=x1)[0]
-    x = net.decode(torch.from_numpy(z).type(torch.FloatTensor).to(device))
-    x = x.detach().cpu().numpy()[1:-1].reshape(-1, test_set.x_dim, test_set.x_dim)
-    x1 = test_set.x_next.detach().cpu().numpy().reshape(-1, test_set.timesteps - args.tau, test_set.x_dim, test_set.x_dim)
-    x1 = x1[0]#.reshape(-1, test_set.x_dim, test_set.x_dim)
-    #print(x.shape)
-    #print(x1.shape)
-    make_pendulum_gif(x, x1, save_path, duration=args.gif_duration)
-
-def exp14(args, net, save_path):
-    net.eval()
-    device = args.device
-    _, test_set, _ = load_data(args)
-    test_loader = DataLoader(test_set, batch_size=len(test_set), shuffle=False, num_workers=1)
-    batch = next(iter(test_loader))
-    (x1, x1_next, x2, x2_next), (z_true, z_true_next), taus = batch
-    x1 = x1[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    x2 = x2[0:args.num_plot].reshape(args.num_plot, -1).type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    taus = taus.type(torch.FloatTensor).to(device)[0].unsqueeze(0)
-    z = net.sample_trajectory(args.exp_timesteps, taus * args.delta_t, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    #z = net.sample_trajectory(args.exp_timesteps, 10 * args.delta_t, just_mean=args.exp_just_mean, x1=x1, x2=x2)[0]
-    z_true_next = z_true_next.detach().cpu().numpy()
-    start, end = args.z_plot_start, args.z_plot_end
-    z = z[start:end]
-    #print(z)
-    z_true_next = z_true_next[start:end]
-    view_inits = None
-    if args.v1 is not None and args.v2 is not None:
-        view_inits = (args.v1, args.v2)
-    plot_hankel_latent_trajectory(z, z_true_next, save_path, figsize=(10, 10), view_inits=view_inits)
