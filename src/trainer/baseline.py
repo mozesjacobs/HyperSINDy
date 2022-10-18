@@ -6,7 +6,6 @@ from src.utils.other import save_model
 def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
           device, initial_epoch, epochs, beta_init, beta_increment,
           checkpoint_interval, threshold_timer, beta_max,
-          #checkpoint_interval, em_threshold, threshold_timer, beta_max,
           weight_decay, noise_threshold, coef_threshold): 
 
     net.train()
@@ -43,13 +42,12 @@ def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
 
         # threshold
         if (e % threshold_timer == 0) and (e != 0) and (beta == beta_max):
+            # threshold out every term except one in each equation (the max)
             threshold_more = e + threshold_timer * 4 >= epochs + initial_epoch
-            #threshold_more = e + 100 >= epochs + initial_epoch
-            #thresh_determ = (em_threshold) and (not thresh_determ)
+            # EM threshold - threshold the deterministic coefs or the noise coefs
             thresh_determ = not thresh_determ
             update_threshold_mask(net, model_type, device, coef_threshold,
                                   noise_threshold, threshold_more, thresh_determ)
-                                  #em_threshold, thresh_determ)
 
         # save
         if (e + 1) % checkpoint_interval == 0:
@@ -64,7 +62,6 @@ def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
 
 def update_threshold_mask(net, model_type, device, threshold1, threshold2,
                           threshold_more, thresh_determ):
-                          #threshold_more, em_threshold, thresh_determ):
     if model_type == 'SINDy':
         net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
     elif model_type == 'HyperSINDy1':
@@ -80,20 +77,22 @@ def update_threshold_mask(net, model_type, device, threshold1, threshold2,
             net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
         else:
             noise_coefs = net.sample_transition(batch_size=500, device=device)
-            ab_coefs = torch.abs(torch.mean(noise_coefs, dim=0))
+            #ab_coefs = torch.abs(torch.mean(noise_coefs, dim=0)) * net.threshold_mask_noise
+            ab_coefs = torch.abs(torch.std(noise_coefs, dim=0)) * net.threshold_mask_noise
             max_val, max_idx = torch.max(ab_coefs, dim=0)
             if threshold_more:
                 not_max = ~ab_coefs.eq(max_val)
                 net.threshold_mask_noise[not_max] = 0
             else:
                 net.threshold_mask_noise[ab_coefs < threshold2] = 0
-            net.threshold_mask_noise[max_idx] = 1
+                net.threshold_mask_noise[max_idx] = 1 # in case it thresholds out everything, we want at least 1 term in each equation
     elif model_type == 'HyperSINDy3':
         if thresh_determ:
             net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
         else:
             noise_coefs = net.sample_transition(batch_size=500, device=device)
-            ab_coefs = torch.abs(torch.mean(noise_coefs, dim=0))
+            #ab_coefs = torch.abs(torch.mean(noise_coefs, dim=0))
+            ab_coefs = torch.abs(torch.std(noise_coefs, dim=0))
             net.threshold_mask_noise[ab_coefs < threshold2] = 0
 
 # try a kind of expectation-maximization thresholding? i.e. alternating

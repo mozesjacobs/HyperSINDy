@@ -2,13 +2,20 @@ import argparse
 
 def hyperparameter_grid():
     settings = {}
-    settings['num_samples'] = 8
-    settings['beta'] = [1, 5]
+    settings['num_samples'] = 12
+    settings['beta'] = [1, 5, 10]
     settings['sindy_weight_decay'] = [0.01, 0.05]
     #settings['sindy_weight_decay'] = lambda _ : 10 ** np.random.randint(-4, -1 + 1)
-    settings['noise_coef_threshold'] = [0.001, 0.005]
+    settings['noise_coef_threshold'] = [0.1, 0.2]
     settings['sindy_coef_threshold'] = [0.1]
     return settings
+
+# state-sinz_scale-25.0
+#   hypersindy 3
+#   hypersindy 22
+# state-x_scale-5.0
+#   hypersindy 3
+#   hypersindy 22
 
 
 def parse_args():
@@ -21,16 +28,16 @@ def parse_args():
     parser.add_argument('-TB', '--tensorboard_folder', default='./tb_runs/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
-    parser.add_argument('-sess', '--session_name', default='em92_alternate', type=str, help="Appended second to last part of file names")
-    parser.add_argument('-DAT', '--date', default="10-17-22", type=str, help="The date"),
-    parser.add_argument('-M',  '--model', default="HyperSINDy3", type=str, help="Model to use")
+    parser.add_argument('-sess', '--session_name', default='trial2_thresh_std_nd-25', type=str, help="Appended second to last part of file names")
+    parser.add_argument('-DAT', '--date', default="10-18-22", type=str, help="The date"),
+    parser.add_argument('-M',  '--model', default="HyperSINDy22", type=str, help="Model to use")
     parser.add_argument('-DT', '--data_set', default="lorenz", type=str, help="Which dataset to use (lorenz)")
     parser.add_argument('-NOISET', '--noise_type', default='x', type=str, help='Type of state-dependent noise (x, sinz)')
-    parser.add_argument('-NOISES', '--noise_scale', default=1.0, type=float, help='Scale of noise in data. Review data folder.')
+    parser.add_argument('-NOISES', '--noise_scale', default=5.0, type=float, help='Scale of noise in data. Review data folder.')
 
     # network parameters
     parser.add_argument('-HD', '--hidden_dim', default=64, type=str, help="Dimension of hidden layers in autoencoder")
-    parser.add_argument('-NOD',  '--noise_dim', default=3, type=int, help="Noise vector dimension")
+    parser.add_argument('-NOD',  '--noise_dim', default=25, type=int, help="Noise vector dimension")
     parser.add_argument('-BN', '--batch_norm', default=True, type=bool, help="IFF true, uses batch norm") # TODO
     parser.add_argument('-SBS', '--statistic_batch_size', default=500, type=str, help="Batch size to sample for statistics")
 
