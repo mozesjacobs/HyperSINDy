@@ -40,7 +40,7 @@ class Net(nn.Module):
         sindy_coeffs = self.sindy_coefficients.unsqueeze(0).repeat(noise_coeffs.size(0), 1, 1)
         theta = self.dz(x, sindy_coeffs)
 
-        return theta + noise_theta, noise_coeffs
+        return theta + noise_theta, theta, noise_theta, noise_coeffs
     
     def sample_transition(self, n=None, batch_size=1, device='cpu'):
         return self.hypernet(n, batch_size, device=device)

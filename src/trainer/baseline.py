@@ -4,14 +4,17 @@ from tqdm import tqdm
 from src.utils.other import save_model
 
 def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
-          device, initial_epoch, epochs, beta_init, beta_increment, checkpoint_interval,
-          threshold_timer, beta_max, weight_decay, noise_threshold, coef_threshold): 
+          device, initial_epoch, epochs, beta_init, beta_increment,
+          checkpoint_interval, threshold_timer, beta_max,
+          #checkpoint_interval, em_threshold, threshold_timer, beta_max,
+          weight_decay, noise_threshold, coef_threshold): 
 
     net.train()
 
     if beta_increment is None:
         beta_increment = beta_max / 100.0
     beta = 0
+    thresh_determ = False
     for e in range(initial_epoch, epochs + initial_epoch):
         recons, klds = 0, 0
         for i, (x, x_dot) in enumerate(trainloader):
@@ -24,9 +27,11 @@ def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
             elif model_type == "HyperSINDy2":
                 recon, kld = train_hyper2(net, optim, x, x_dot, beta, weight_decay, device)
             elif model_type == "HyperSINDy22":
-                recon, kld = train_hyper22(net, optim, x, x_dot, beta, weight_decay, device)
+                #recon, kld = train_hyper22(net, optim, x, x_dot, beta, weight_decay, device)
+                recon, kld = train_hyper3_22_alternate(net, optim, x, x_dot, beta, weight_decay, device)
             elif model_type == "HyperSINDy3":
-                recon, kld = train_hyper3(net, optim, x, x_dot, beta, weight_decay, device)
+                #recon, kld = train_hyper3(net, optim, x, x_dot, beta, weight_decay, device)
+                recon, kld = train_hyper3_22_alternate(net, optim, x, x_dot, beta, weight_decay, device)
             elif model_type == "SINDy":
                 recon, kld = train_sindy(net, optim, x, x_dot, weight_decay, device)
 
@@ -39,7 +44,12 @@ def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
         # threshold
         if (e % threshold_timer == 0) and (e != 0) and (beta == beta_max):
             threshold_more = e + threshold_timer * 4 >= epochs + initial_epoch
-            update_threshold_mask(net, model_type, device, coef_threshold, noise_threshold, threshold_more)
+            #threshold_more = e + 100 >= epochs + initial_epoch
+            #thresh_determ = (em_threshold) and (not thresh_determ)
+            thresh_determ = not thresh_determ
+            update_threshold_mask(net, model_type, device, coef_threshold,
+                                  noise_threshold, threshold_more, thresh_determ)
+                                  #em_threshold, thresh_determ)
 
         # save
         if (e + 1) % checkpoint_interval == 0:
@@ -52,7 +62,9 @@ def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
 
     return net, optim, scheduler
 
-def update_threshold_mask(net, model_type, device, threshold1, threshold2, threshold_more):
+def update_threshold_mask(net, model_type, device, threshold1, threshold2,
+                          threshold_more, thresh_determ):
+                          #threshold_more, em_threshold, thresh_determ):
     if model_type == 'SINDy':
         net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
     elif model_type == 'HyperSINDy1':
@@ -64,25 +76,34 @@ def update_threshold_mask(net, model_type, device, threshold1, threshold2, thres
         net.threshold_mask[torch.abs(coefs) < threshold1] = 0
         net.threshold_mask[0] = 1
     elif model_type == 'HyperSINDy22':
-        net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
-        noise_coefs = net.sample_transition(batch_size=500, device=device)
-        mean_coefs = torch.mean(noise_coefs, dim=0)            
-        if threshold_more:
-            ab_coefs = torch.abs(mean_coefs)
-            not_max = ~ab_coefs.eq(torch.max(ab_coefs, dim=0)[0])
-            net.threshold_mask_noise[not_max] = 0
+        if thresh_determ:
+            net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
         else:
-            net.threshold_mask_noise[torch.abs(mean_coefs) < threshold2] = 0
+            noise_coefs = net.sample_transition(batch_size=500, device=device)
+            ab_coefs = torch.abs(torch.mean(noise_coefs, dim=0))
+            max_val, max_idx = torch.max(ab_coefs, dim=0)
+            if threshold_more:
+                not_max = ~ab_coefs.eq(max_val)
+                net.threshold_mask_noise[not_max] = 0
+            else:
+                net.threshold_mask_noise[ab_coefs < threshold2] = 0
+            net.threshold_mask_noise[max_idx] = 1
     elif model_type == 'HyperSINDy3':
-        net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
-        noise_coefs = net.sample_transition(batch_size=500, device=device)
-        mean_coefs = torch.mean(noise_coefs, dim=0)
-        net.threshold_mask_noise[torch.abs(mean_coefs) < threshold2] = 0
+        if thresh_determ:
+            net.threshold_mask[torch.abs(net.sindy_coefficients) < threshold1] = 0
+        else:
+            noise_coefs = net.sample_transition(batch_size=500, device=device)
+            ab_coefs = torch.abs(torch.mean(noise_coefs, dim=0))
+            net.threshold_mask_noise[ab_coefs < threshold2] = 0
 
-
-def train_hyper3(net, optim, x, x_dot, beta, weight_decay, device):
-    x_dot_pred, noise_coeffs = net(x, device)
-    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+# try a kind of expectation-maximization thresholding? i.e. alternating
+# need term in the loss function for determinstica and term for stochastic
+def train_hyper3_22_alternate(net, optim, x, x_dot, beta, weight_decay, device):
+    x_dot_pred, x_dot_pred_theta, noise_theta, noise_coeffs = net(x, device)
+    determ_error = x_dot - x_dot_pred_theta
+    recon1 = (determ_error ** 2).sum(1).mean()
+    recon2 = ((noise_theta - determ_error.detach().clone().to(device)) ** 2).sum(1).mean()
+    recon = recon1 + recon2
     kld = net.kl(noise_coeffs)
     masked_coeffs = net.sindy_coefficients * net.threshold_mask
     reg1 = (masked_coeffs ** 2).sum() * weight_decay
@@ -94,9 +115,32 @@ def train_hyper3(net, optim, x, x_dot, beta, weight_decay, device):
     optim.step()
     return recon.item(), kld.item()
 
-def train_hyper22(net, optim, x, x_dot, beta, weight_decay, device):
-    x_dot_pred, noise_coeffs = net(x, device)
-    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+# try a kind of expectation-maximization thresholding? i.e. alternating
+# need term in the loss function for determinstica and term for stochastic
+def train_hyper3(net, optim, x, x_dot, beta, weight_decay, device):
+    x_dot_pred, x_dot_pred_theta, noise_theta, noise_coeffs = net(x, device)
+    recon1 = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+    recon2 = ((x_dot_pred_theta - x_dot) ** 2).sum(1).mean()
+    recon = recon1 * 0.9 + recon2 * 0.1
+    kld = net.kl(noise_coeffs)
+    masked_coeffs = net.sindy_coefficients * net.threshold_mask
+    reg1 = (masked_coeffs ** 2).sum() * weight_decay
+    masked_coeffs = noise_coeffs * net.threshold_mask_noise
+    reg2 = (masked_coeffs ** 2).sum(1).sum(1).mean() * weight_decay
+    loss = recon + kld * beta + reg1 + reg2
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+    return recon.item(), kld.item()
+
+# try a kind of expectation-maximization thresholding? i.e. alternating
+# need term in the loss function for determinstica and term for stochastic
+def train_hyper22_alternate(net, optim, x, x_dot, beta, weight_decay, device):
+    x_dot_pred, x_dot_pred_theta, noise_theta, noise_coeffs = net(x, device)
+    recon1 = ((x_dot_pred_theta - x_dot) ** 2).sum(1).mean()
+    determ_error = (x_dot - x_dot_pred_theta).detach().clone().to(device)
+    recon2 = ((noise_theta - determ_error) ** 2).sum(1).mean()
+    recon = recon1 + recon2
     kld = net.kl(noise_coeffs)
     masked_coeffs = net.sindy_coefficients * net.threshold_mask
     reg1 = (masked_coeffs ** 2).sum() * weight_decay

@@ -65,7 +65,7 @@ def main():
         # train model
         train(net, optim, scheduler, cp_path, args.model, trainloader, train_board,
               args.device, initial_e, args.epochs, args.beta_init, args.beta_inc, args.threshold_interval,
-              args.checkpoint_interval,
+              args.checkpoint_interval, #args.em_threshold,
               beta_max=l1, weight_decay=l2, noise_threshold=l3, coef_threshold=l4)
               
         # sample trajectory
