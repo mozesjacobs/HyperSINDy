@@ -12,7 +12,7 @@ class HyperNet(nn.Module):
         layers = []
         in_features = self.in_dim
         for out_features in hidden_dims:
-            layers.append(nn.Linear(in_features, out_features, bias=False))
+            layers.append(nn.Linear(in_features, out_features, bias=bias))
             if norm == 'batch':
                 layers.append(nn.BatchNorm1d(out_features))
             elif norm == 'layer':

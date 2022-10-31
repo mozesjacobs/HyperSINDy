@@ -66,6 +66,44 @@ def plot_3d_trajectory(fpath, zs, hyperparams, equations, figsize=None):
     plt.savefig(fpath)
     plt.close()
 
+# zs shape: (num hyperparams x exp batch_size x trajectory length x 2)
+def plot_2d_trajectory(fpath, z_true, zs, hyperparams, equations, figsize=None):
+    num_hps, ebs, T, z_dim = zs.shape
+    num_cols = ebs + 2 # first col = hyperparams, then exp batch, then equations
+    if figsize is None:
+        fig = plt.figure(figsize=(4 * ebs, (10 / 3) * num_hps), dpi=300)
+    else:
+        fig = plt.figure(figsize=figsize, dpi=300)
+    ct = 1
+    for i in range(num_hps):
+        for j in range(-1, ebs + 1):
+            # first column: hyperparams
+            if j == -1:
+                ax = fig.add_subplot(num_hps, num_cols, ct)
+                draw_hyperparams(ax, hyperparams[i])
+            # last column: equations
+            elif j == ebs:
+                ax = fig.add_subplot(num_hps, num_cols, ct)
+                draw_equations(ax, equations[i], z_dim=z_dim)
+            # in between: trajectories
+            else:
+                ax = fig.add_subplot(num_hps, ebs + 2, ct)
+                if (i == num_hps - 1) and (j == ebs - 1):
+                    ax.plot(zs[i][j][:,0], color='red', label='X')
+                    ax.plot(zs[i][j][:,1], color='blue', label='Y')
+                    ax.plot(z_true[:,0], color='yellow', label='X-GT')
+                    ax.plot(z_true[:,1], color='green', label='Y-GT')
+                    ax.legend(loc='best')
+                else:
+                    ax.plot(zs[i][j][:,0], color='red')
+                    ax.plot(zs[i][j][:,1], color='blue')
+                    ax.plot(z_true[:,0], color='yellow')
+                    ax.plot(z_true[:,1], color='green')
+            ct += 1
+    fig.subplots_adjust(wspace=0.0, hspace=0.0)
+    plt.savefig(fpath)
+    plt.close()
+
 # zs shape: (num hyperparams x exp batch_size x trajectory length x 1)
 def plot_1d_trajectory(fpath, z_true, zs, hyperparams, equations, figsize=None):
     num_hps, ebs, T, z_dim = zs.shape

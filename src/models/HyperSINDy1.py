@@ -13,12 +13,14 @@ class Net(nn.Module):
         self.noise_dim = args.noise_dim
         self.include_constant = args.include_constant
         self.include_sine = args.include_sine
+        self.include_mult_sine=args.include_mult_sine
         self.statistic_batch_size = args.statistic_batch_size
 
         self.library_dim = library_size(self.z_dim, self.poly_order,
-            include_constant=self.include_constant, use_sine=self.include_sine)
+            include_constant=self.include_constant, use_sine=self.include_sine,
+            use_mult_sine=self.include_mult_sine)
         self.hypernet = HyperNet(self.noise_dim, (self.library_dim, self.z_dim),
-            [args.hidden_dim for _ in range(4)])
+            [args.hidden_dim for _ in range(4)], norm=args.norm)
         self.threshold_mask = nn.Parameter(torch.ones(self.library_dim, self.z_dim),
             requires_grad=False)
     
@@ -33,7 +35,10 @@ class Net(nn.Module):
         return self.hypernet(n, batch_size, device=device)
     
     def dz(self, x, sindy_coeffs):
-        library = sindy_library(x, self.poly_order, include_constant=self.include_constant, include_sine=self.include_sine)
+        library = sindy_library(x, self.poly_order,
+                                include_constant=self.include_constant,
+                                include_sine=self.include_sine,
+                                include_mult_sine=self.include_mult_sine)
         masked_coefficients = sindy_coeffs * self.threshold_mask
         library = library.unsqueeze(1)
         theta = torch.bmm(library, masked_coefficients).squeeze(1)

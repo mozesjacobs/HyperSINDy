@@ -67,6 +67,9 @@ def main():
               args.device, initial_e, args.epochs, args.beta_init, args.beta_inc, args.threshold_interval,
               args.checkpoint_interval, #args.em_threshold,
               beta_max=l1, weight_decay=l2, noise_threshold=l3, coef_threshold=l4)
+
+        # eval
+        net = net.eval()
               
         # sample trajectory
         zs = sample_trajectory(net, device, train_set.x[0].numpy(), args.exp_batch_size, args.exp_dt, args.exp_timesteps)
@@ -74,7 +77,7 @@ def main():
         # get equations
         equations = get_equations(net, args.model, device, args.statistic_batch_size,
                                   args.z_dim, args.poly_order,
-                                  args.include_constant, args.include_sine)
+                                  args.include_constant, args.include_sine, args.include_mult_sine)
         
         all_zs.append(zs)
         all_equations.append(equations)
@@ -84,6 +87,9 @@ def main():
         plot_3d_trajectory(exp_folder + "comparison.png", all_zs, sampled_hyperparams, all_equations, figsize=None)
     elif args.z_dim == 1:
         plot_1d_trajectory(exp_folder + "comparison.png", train_set.x.numpy(), all_zs, sampled_hyperparams, all_equations, figsize=None)
+
+    #print("YUP")
+    #print(net.uwu)
 
 if __name__ == "__main__":
     main()

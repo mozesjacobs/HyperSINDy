@@ -8,13 +8,14 @@ def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
           checkpoint_interval, threshold_timer, beta_max,
           weight_decay, noise_threshold, coef_threshold): 
 
-    net.train()
-
     if beta_increment is None:
         beta_increment = beta_max / 100.0
     beta = 0
     thresh_determ = False
     for e in range(initial_epoch, epochs + initial_epoch):
+        # train mode
+        net = net.train()
+        
         recons, klds = 0, 0
         for i, (x, x_dot) in enumerate(trainloader):
             x = x.type(torch.FloatTensor).to(device)
@@ -39,6 +40,9 @@ def train(net, optim, scheduler, cp_path, model_type, trainloader, board,
 
         # log losses
         log_losses(board, recons / len(trainloader), klds / len(trainloader), e)
+
+        # eval mode for thresholding
+        net = net.eval()
 
         # threshold
         if (e % threshold_timer == 0) and (e != 0) and (beta == beta_max):
@@ -134,7 +138,7 @@ def train_hyper3(net, optim, x, x_dot, beta, weight_decay, device):
 
 # try a kind of expectation-maximization thresholding? i.e. alternating
 # need term in the loss function for determinstica and term for stochastic
-def train_hyper22_alternate(net, optim, x, x_dot, beta, weight_decay, device):
+def train_hyper22(net, optim, x, x_dot, beta, weight_decay, device):
     x_dot_pred, x_dot_pred_theta, noise_theta, noise_coeffs = net(x, device)
     recon1 = ((x_dot_pred_theta - x_dot) ** 2).sum(1).mean()
     determ_error = (x_dot - x_dot_pred_theta).detach().clone().to(device)

@@ -23,11 +23,12 @@ def update_equation_list(equations, library, coefs, starts, z_dim):
     for i in range(z_dim):
         equations.append(get_equation(library, coefs[:,i], starts[i]))
 
-def get_equations(net, model_type, device, batch_size, z_dim, poly_order, include_constant, include_sine):
+def get_equations(net, model_type, device, batch_size, z_dim, poly_order, include_constant, include_sine, include_mult_sine):
     starts = ["X' = ", "Y' = ", "Z' = "]
     library = equation_sindy_library(z_dim, poly_order,
                                          include_constant=include_constant,
-                                         include_sine=include_sine)
+                                         include_sine=include_sine,
+                                         include_mult_sine=include_mult_sine)
     equations = []
     if model_type == "HyperSINDy1":
         coefs = net.get_masked_coefficients(batch_size=batch_size, device=device)

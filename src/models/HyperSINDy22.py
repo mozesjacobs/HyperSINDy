@@ -12,14 +12,17 @@ class Net(nn.Module):
         self.poly_order = args.poly_order
         self.noise_dim = args.noise_dim
         self.include_constant = args.include_constant
+        self.include_mult_sine = args.include_mult_sine
         self.include_sine = args.include_sine
         self.statistic_batch_size = args.statistic_batch_size
 
         self.noise_dim = args.noise_dim
-        self.library_dim = library_size(self.z_dim, self.poly_order, include_constant=self.include_constant, use_sine=self.include_sine)
+        self.library_dim = library_size(self.z_dim, self.poly_order, include_constant=self.include_constant, use_sine=self.include_sine, use_mult_sine=self.include_mult_sine)
+
+        #self.uwu = nn.Parameter(torch.ones(1), requires_grad=True)
         
         # hyper
-        self.hypernet = HyperNet(self.noise_dim, (self.library_dim, self.z_dim), [args.hidden_dim for i in range(4)])
+        self.hypernet = HyperNet(self.noise_dim, (self.library_dim, self.z_dim), [args.hidden_dim for i in range(4)], norm=args.norm)
         self.threshold_mask_noise = nn.Parameter(torch.ones(self.library_dim, self.z_dim), requires_grad=False)
         
         # sindy
@@ -30,7 +33,7 @@ class Net(nn.Module):
         
     def forward(self, x, device):
         x = x.type(torch.FloatTensor).to(device)
-        n = torch.randn([x.size(0), self.noise_dim], device=device)
+        n = torch.randn([x.size(0), self.noise_dim], device=device) #* self.uwu
         
         # stochastic
         noise_coeffs = self.sample_transition(n=n, device=device)
@@ -43,17 +46,19 @@ class Net(nn.Module):
         return theta + noise_theta, theta, noise_theta, noise_coeffs
     
     def sample_transition(self, n=None, batch_size=1, device='cpu'):
+        if n is None:
+            n = torch.randn([batch_size, self.noise_dim], device=device) #* self.uwu
         return self.hypernet(n, batch_size, device=device)
     
     def dz_noise(self, x, sindy_coeffs):
-        library = sindy_library(x, self.poly_order, include_constant=self.include_constant, include_sine=self.include_sine)
+        library = sindy_library(x, self.poly_order, include_constant=self.include_constant, include_sine=self.include_sine, include_mult_sine=self.include_mult_sine)
         masked_coefficients = sindy_coeffs * self.threshold_mask_noise
         library = library.unsqueeze(1)
         theta = torch.bmm(library, masked_coefficients).squeeze(1)
         return theta
     
     def dz(self, x, sindy_coeffs):
-        library = sindy_library(x, self.poly_order, include_constant=self.include_constant, include_sine=self.include_sine)
+        library = sindy_library(x, self.poly_order, include_constant=self.include_constant, include_sine=self.include_sine, include_mult_sine=self.include_mult_sine)
         masked_coefficients = sindy_coeffs * self.threshold_mask
         library = library.unsqueeze(1)
         theta = torch.bmm(library, masked_coefficients).squeeze(1)
@@ -64,7 +69,7 @@ class Net(nn.Module):
     
         masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
         gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
-        prior_samples = torch.randn_like(gen_weights)
+        prior_samples = torch.randn_like(gen_weights) #* self.uwu
         eye = torch.eye(num_samples, device=gen_weights.device) # 250 x 250
         wp_distances = (prior_samples.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2  # 60 x 250 x 250
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
