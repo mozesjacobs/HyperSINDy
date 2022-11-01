@@ -21,8 +21,8 @@ def parse_args():
     parser.add_argument('-TB', '--tensorboard_folder', default='./tb_runs/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
-    parser.add_argument('-sess', '--session_name', default='trial1', type=str, help="Appended second to last part of file names")
-    parser.add_argument('-DAT', '--date', default="10-27-22", type=str, help="The date"),
+    parser.add_argument('-sess', '--session_name', default='debug', type=str, help="Appended second to last part of file names")
+    parser.add_argument('-DAT', '--date', default="10-30-22", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="HyperSINDy3", type=str, help="Model to use")
     parser.add_argument('-DT', '--data_set', default="lorenz3", type=str, help="Which dataset to use (lorenz)")
     parser.add_argument('-NOISET', '--noise_type', default='statesinstate', type=str, help='Type of state-dependent noise (x, sinz)')
