@@ -27,12 +27,8 @@ class Net(nn.Module):
         
     def forward(self, x, device):
         x = x.type(torch.FloatTensor).to(device)
-        n = torch.randn([x.size(0), self.noise_dim], device=device)
-        sindy_coeffs = self.sample_transition(n=n, device=device)
-        return self.dz(x, sindy_coeffs), sindy_coeffs
-    
-    def sample_transition(self, n=None, batch_size=1, device='cpu'):
-        return self.hypernet(n, batch_size, device=device)
+        coefs = self.get_masked_coefficients(x.size(0), device)
+        return self.dz(x, coefs), coefs
     
     def dz(self, x, sindy_coeffs):
         library = sindy_library(x, self.poly_order,
@@ -44,15 +40,20 @@ class Net(nn.Module):
         theta = torch.bmm(library, masked_coefficients).squeeze(1)
         return theta
 
-    def sindy_coeffs_full(self, batch_size=500, device=0):
-        return self.sample_transition(batch_size=batch_size, device=device)
+    def sample_coefs(self, n=None, batch_size=500, device=0):
+        if n is None:
+            n = torch.randn([batch_size, self.noise_dim], device=device)
+        return self.hypernet(n)
 
-    def get_masked_coefficients(self, batch_size=500, device=0):
-        return self.sindy_coeffs_full(batch_size, device) * self.threshold_mask
+    def get_masked_coefficients(self, n=None, batch_size=500, device=0):
+        return self.sample_coefs(n=n, batch_size, device) * self.threshold_mask
+
+    def update_threshold_mask(self, threshold):
+        mean_coefs = torch.mean(self.get_masked_coefficients(), dim=0)
+        net.threshold_mask[torch.abs(mean_coefs) < threshold] = 0
     
-    def kl(self, sindy_coeffs, num_samples=5, full_kernel=True):
+    def kl(self, sindy_coeffs):
         num_samples = sindy_coeffs.size(0)
-    
         masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
         gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
         prior_samples = torch.randn_like(gen_weights)
@@ -61,8 +62,8 @@ class Net(nn.Module):
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
         
         # anything thresholded out to 0 should have 0 loss (so gradient doesn't flow)
-        wp_distances = wp_distances * self.threshold_mask.reshape(-1, 1, 1)
-        ww_distances = ww_distances * self.threshold_mask.reshape(-1, 1 ,1)
+        #wp_distances = wp_distances * self.threshold_mask.reshape(-1, 1, 1)
+        #ww_distances = ww_distances * self.threshold_mask.reshape(-1, 1 ,1)
         
         wp_distances = torch.sqrt(torch.sum(wp_distances, 0) + 1e-8) # 250 x 250
         wp_dist = torch.min(wp_distances, 0)[0] # 250

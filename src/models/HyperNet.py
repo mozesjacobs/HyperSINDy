@@ -22,7 +22,5 @@ class HyperNet(nn.Module):
         layers.append(nn.Linear(in_features, np.prod(self.out_shape), bias=bias))
         self.layers = nn.Sequential(*layers)
 
-    def forward(self, n=None, batch_size=1, device='cpu'):
-        if n is None:
-            n = torch.randn((batch_size, self.in_dim), device=device)
+    def forward(self, n):
         return self.layers(n).reshape(n.size(0), *self.out_shape)
