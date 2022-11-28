@@ -10,7 +10,7 @@ from cmd_line import parse_args, hyperparameter_grid
 from src.trainer.baseline import train
 from src.utils.other import *
 from src.utils.exp_utils import sample_trajectory, get_equations
-from src.utils.plotting import plot_3d_trajectory, plot_1d_trajectory
+from src.utils.plotting import plot_3d_trajectory, plot_2d_trajectory, plot_1d_trajectory
 
 
 def main():
@@ -83,13 +83,11 @@ def main():
         all_equations.append(equations)
     
     all_zs = np.stack(all_zs, axis=0)
-    if args.z_dim == 3:
-        plot_3d_trajectory(exp_folder + "comparison.png", all_zs, sampled_hyperparams, all_equations, figsize=None)
-    elif args.z_dim == 1:
-        plot_1d_trajectory(exp_folder + "comparison.png", train_set.x.numpy(), all_zs, sampled_hyperparams, all_equations, figsize=None)
-
-    #print("YUP")
-    #print(net.uwu)
+    plot_trajectory()
+    #if args.z_dim == 3:
+    #    plot_3d_trajectory(exp_folder + "comparison.png", all_zs, sampled_hyperparams, all_equations, figsize=None)
+    #elif args.z_dim == 1:
+    #    plot_1d_trajectory(exp_folder + "comparison.png", train_set.x.numpy(), all_zs, sampled_hyperparams, all_equations, figsize=None)
 
 if __name__ == "__main__":
     main()

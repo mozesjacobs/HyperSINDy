@@ -123,17 +123,7 @@ def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, incl
         for i in range(n):
             str_lib.append(X[i] + 'sin(' + X[i] + ')')
 
-    return str_lib
-
-def get_equation(lib, coef, start):
-    res = start
-    for i in range(len(coef)):
-        if coef[i] != 0:
-            res += str(coef[i]) + lib[i] + ' + '
-    return res[:-2]    
-
-def sindy_coeffs_stats(sindy_coeffs):
-    return torch.mean(sindy_coeffs, dim=0), torch.std(sindy_coeffs, dim=0)
+    return str_lib  
 
 def init_weights(layer):
     if isinstance(layer, nn.Linear):

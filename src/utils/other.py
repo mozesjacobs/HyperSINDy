@@ -31,14 +31,8 @@ def load_checkpoint(cp_path, net, optim, scheduler, device):
     return net, optim, scheduler, initial_e
 
 def make_model(args, device):
-    if args.model == 'HyperSINDy1':
-        from src.models.HyperSINDy1 import Net
-    elif args.model == 'HyperSINDy2':
-        from src.models.HyperSINDy2 import Net
-    elif args.model == 'HyperSINDy22':
-        from src.models.HyperSINDy22 import Net
-    elif args.model == 'HyperSINDy3':
-        from src.models.HyperSINDy3 import Net
+    if args.model == 'HyperSINDy':
+        from src.models.HyperSINDy import Net
     elif args.model == 'SINDy':
         from src.models.SINDy import Net
     net = Net(args).to(device)

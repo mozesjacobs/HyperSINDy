@@ -29,3 +29,6 @@ class Net(nn.Module):
         masked_coefficients = sindy_coeffs * self.threshold_mask
         theta = torch.matmul(library, masked_coefficients).squeeze(1)
         return theta
+
+    def update_threshold_mask(self, threshold):
+        self.threshold_mask[torch.abs(self.sindy_coefficients) < threshold] = 0
