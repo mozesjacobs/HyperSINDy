@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from src.utils.other import save_model
 from src.utils.exp_utils import sample_trajectory, get_equations
-from src.utils.plotting import plot_trajectory
+from src.utils.plotting import draw_equations, plot_trajectory
 
 def train(net, args, hyperparams, optim, scheduler, trainloader, trainset, 
           board, cp_path, initial_epoch, device): 
@@ -130,3 +130,5 @@ def eval_model(net, args, board, trainset, device, epoch):
     eq_std = str(equations[5]) + "  \n" + str(equations[6]) + "  \n" + str(equations[7])
     board.add_text(tag="Equations/mean", text_string=eq_mean, global_step=epoch, walltime=None)
     board.add_text(tag="Equations/std", text_string=eq_std, global_step=epoch, walltime=None)
+
+    #draw_equations(board, epoch, equations, args.z_dim)

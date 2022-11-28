@@ -14,6 +14,23 @@ def clear_ax_extra(ax):
     ax.set_aspect('equal')
 
 
+def draw_equations(board, epoch, equations, z_dim):
+    fig = plt.figure(figsize=(10, 10), dpi=300)
+    ax = plt.gca()
+    x_pos = 0.25
+    y_pos = 0.9
+    dy = 0.055
+    for idx, eq in enumerate(equations):
+        if idx % (z_dim + 1) == 0:
+            ax.text(x_pos, y_pos, eq, color='red', fontweight='bold')
+        else:
+            ax.text(x_pos, y_pos, eq)
+        y_pos -= dy
+    clear_ax_extra(ax)
+    board.add_figure(tag="Equations", figure=fig, global_step=epoch, close=True,
+                     walltime=None)
+
+
 def plot_trajectory(board, epoch, z_true, z_pred, figsize=None):
     batch_size, T, z_dim = z_pred.shape
     if figsize is None:
