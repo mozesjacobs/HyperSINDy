@@ -1,22 +1,16 @@
 import os
 import json
-from src.dataset.Datasets import *
+import torch
+from src.dataset.Datasets import SyntheticDataset
 from src.utils.path_utils import *
 from src.utils.model_utils import init_weights
 
 
 def load_data(args):
     # train and val data (using val as "test" data)
-    if args.data_set == "lorenz":
-        fpath = get_lorenz_path(args.noise_type, args.noise_scale)
-        trainset = LorenzDataset(fpath)
-    elif args.data_set == "rossler":
-        fpath = get_rossler_path(args.noise_type, args.noise_scale)
-        trainset = RosslerDataset(fpath)
-    elif args.data_set == "pupil":
-        fpath = get_pupil_path()
-        trainset = PupilDataset(datapath=fpath, norm=args.norm_data, scale=args.scale_data, amount=None)
-    return trainset
+    fpath = get_data_path(args.data_folder, args.dataset,
+                          args.noise_type, str(args.noise_scale))
+    return SyntheticDataset(args, fpath)
 
 def load_checkpoint(cp_path, net, optim, scheduler, device):
     checkpoint = torch.load(cp_path, map_location="cuda:" + str(device))
@@ -27,27 +21,28 @@ def load_checkpoint(cp_path, net, optim, scheduler, device):
     initial_e = checkpoint['epoch']
     return net, optim, scheduler, initial_e
 
-def make_model(args, device):
+def make_model(args, hyperparams, device):
     if args.model == 'HyperSINDy':
         from src.models.HyperSINDy import Net
     elif args.model == 'SINDy':
         from src.models.SINDy import Net
-    net = Net(args).to(device)
+    net = Net(args, hyperparams).to(device)
     net.apply(init_weights)
-    optim = torch.optim.Adam(net.parameters(), lr=args.learning_rate, weight_decay=args.adam_regularization)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, gamma=args.gamma_factor)
+    optim = torch.optim.Adam(
+        net.parameters(), lr=hyperparams.learning_rate,
+        weight_decay=hyperparams.adam_reg)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(
+        optim, gamma=args.gamma_factor)
     return net, optim, scheduler, 0
 
 def make_folder(folder):
     if not os.path.isdir(folder):
         os.system("mkdir -p " + folder)
 
-def print_folders(do_print, cp_folder=None, exp_folder=None, tb_folder=None):
+def print_folders(do_print, cp_folder=None, tb_folder=None):
     if do_print:
         if cp_folder is not None:
             print("Checkpoints saved at:        ", cp_folder)
-        if exp_folder is not None:
-            print("Experiment results saved at: ", exp_folder)
         if tb_folder is not None:
             print("Tensorboard logs saved at:   ", tb_folder)
         

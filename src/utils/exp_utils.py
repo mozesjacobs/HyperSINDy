@@ -8,12 +8,12 @@ from src.utils.model_utils import equation_sindy_library
 
 
 # returns: batch_size x ts x z_dim
-def sample_trajectory(net, device, init_cond, batch_size=10, dt=1e-2, ts=5000):
-    zc = torch.from_numpy(init_cond).type(torch.FloatTensor).to(device)
+def sample_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
+    zc = torch.from_numpy(x0).type(torch.FloatTensor).to(device)
     zc = torch.stack([zc for _ in range(batch_size)], dim=0)
     zs = []
     for i in range(ts):
-        zc = zc + net(zc, device)[0] * dt
+        zc = zc + net(zc, device=device)[0] * dt
         zs.append(zc)
     zs = torch.stack(zs, dim=0)
     zs = torch.transpose(zs, 0, 1)
@@ -26,26 +26,28 @@ def build_equation(lib, coef, eq):
                 eq += str(coef[i]) + lib[i]
             else:
                 eq += str(coef[i]) + lib[i] + ' + '
+    if eq[-2] == '+':
+        eq = eq[:-3]
     return eq
 
 def update_equation_list(equations, library, coefs, starts, z_dim):
     for i in range(z_dim):
-        equations.append(get_equation(library, coefs[:,i], starts[i]))
+        equations.append(build_equation(library, coefs[:,i], starts[i]))
 
 def get_equations(net, model_type, device, z_dim, poly_order, include_constant, include_sine):
     starts = ["X' = ", "Y' = ", "Z' = "]
     library = equation_sindy_library(z_dim, poly_order, include_constant=include_constant, include_sine=include_sine)
-    equations = {}
+    equations = []
     if model_type == "HyperSINDy":
         mean_coeffs, std_coeffs = sindy_coeffs_stats(net.get_masked_coefficients(device=device))
         equations.append("MEAN")
-        update_equation_list(equations, library, mean_coefs, starts, z_dim)
+        update_equation_list(equations, library, mean_coeffs, starts, z_dim)
         equations.append("STD")
-        update_equation_list(equations, library, std_coefs.detach().cpu().numpy(), starts, z_dim)
+        update_equation_list(equations, library, std_coeffs, starts, z_dim)
     elif model_type == "SINDy":
         sindy_coefs = net.sindy_coefficients * net.threshold_mask
         equations.append("SINDy")
-        update_equation_list(equations, library, sindy_coefs.detach().cpu().numpy(), starts, z_dim)
+        update_equation_list(equations, library, sindy_coefs, starts, z_dim)
     return equations
 
 def plot_weight_distribution(fpath, coeffs):
@@ -58,5 +60,5 @@ def plot_weight_distribution(fpath, coeffs):
     plt.close()
 
 def sindy_coeffs_stats(sindy_coeffs):
-    coefs = sindy_coeffs.detach().cpu.numpy()
+    coefs = sindy_coeffs.detach().cpu().numpy()
     return np.mean(coefs, axis=0), np.std(coefs, axis=0)
