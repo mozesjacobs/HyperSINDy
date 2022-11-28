@@ -3,11 +3,8 @@ import os
 def get_lorenz_path(noise_type, noise_scale):
     return "data/lorenz/state-" + noise_type + "_scale-" + str(noise_scale) + "/"
 
-def get_lorenz2_path(noise_type, noise_scale):
-    return "data/lorenz2/state-" + noise_type + "_scale-" + str(noise_scale) + "/"
-
-def get_lorenz3_path(noise_type, noise_scale):
-    return "data/lorenz3/state-" + noise_type + "_scale-" + str(noise_scale) + "/"
+def get_rossler_path(noise_type, noise_scale):
+    return "data/rossler/state-" + noise_type + "_scale-" + str(noise_scale) + "/"
 
 def get_pupil_path():
     return "data/pupil1.npy"

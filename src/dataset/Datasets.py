@@ -15,6 +15,18 @@ class LorenzDataset(Dataset):
     def __getitem__(self, idx):
         return self.x[idx], self.x_dot[idx]  
 
+class RosslerDataset(Dataset):
+
+    def __init__(self, fpath):
+        self.x = torch.from_numpy(np.load(fpath + "x_train.npy"))
+        self.x_dot = torch.from_numpy(np.load(fpath + "x_dot.npy"))
+
+    def __len__(self):
+        return len(self.x)
+    
+    def __getitem__(self, idx):
+        return self.x[idx], self.x_dot[idx]  
+
 class PupilDataset(Dataset):
 
     def __init__(self, datapath="../../data/pupil1.npy", norm=True, scale=1.0, amount=None):

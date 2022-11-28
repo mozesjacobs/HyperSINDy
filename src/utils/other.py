@@ -10,12 +10,9 @@ def load_data(args):
     if args.data_set == "lorenz":
         fpath = get_lorenz_path(args.noise_type, args.noise_scale)
         trainset = LorenzDataset(fpath)
-    elif args.data_set == "lorenz2":
-        fpath = get_lorenz2_path(args.noise_type, args.noise_scale)
-        trainset = LorenzDataset(fpath)
-    elif args.data_set == "lorenz3":
-        fpath = get_lorenz3_path(args.noise_type, args.noise_scale)
-        trainset = LorenzDataset(fpath)
+    elif args.data_set == "rossler":
+        fpath = get_rossler_path(args.noise_type, args.noise_scale)
+        trainset = RosslerDataset(fpath)
     elif args.data_set == "pupil":
         fpath = get_pupil_path()
         trainset = PupilDataset(datapath=fpath, norm=args.norm_data, scale=args.scale_data, amount=None)
