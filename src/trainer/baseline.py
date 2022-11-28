@@ -131,4 +131,7 @@ def eval_model(net, args, board, trainset, device, epoch):
     board.add_text(tag="Equations/mean", text_string=eq_mean, global_step=epoch, walltime=None)
     board.add_text(tag="Equations/std", text_string=eq_std, global_step=epoch, walltime=None)
 
+    # Prior scale
+    board.add_scalar("Prior Scale", net.prior_scale, epoch)
+
     #draw_equations(board, epoch, equations, args.z_dim)
