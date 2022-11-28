@@ -27,6 +27,14 @@ def lorenz(x, y, z, s=10, r=28, b=2.667, param_std=1.0, noise_type='x'):
         x_dot = s * (y - x) + np.random.normal(0, param_std) * np.sin(z)
         y_dot = r * x - y - x * z + np.random.normal(0, param_std) * np.sin(z)
         z_dot = x * y - b * z + np.random.normal(0, param_std) * np.sin(z)
+    elif noise_type == 'raw':
+        x_dot = s * (y - x) + np.random.normal(0, param_std)
+        y_dot = r * x - y - x * z + np.random.normal(0, param_std)
+        z_dot = x * y - b * z + np.random.normal(0, param_std)
+    elif noise_type == 'after':
+        x_dot = s * (y - x)
+        y_dot = r * x - y - x * z
+        z_dot = x * y - b * z
     
     return x_dot, y_dot, z_dot
 
@@ -71,6 +79,9 @@ def pipeline(folder, scale=1.0, s=10, r=28, b=8.0/3, steps=10000, dt=1e-2,
     x_train, x_dot_train_measured = simulation(init_conds, dt=dt, steps=steps,
                                                scale=scale, s=s, r=r, b=b,
                                                noise_type=noise_type)
+    if noise_type == 'after':
+        xs = (x_train.shape[0], x_train.shape[1])
+        x_train = x_train + np.random.normal(0, scale, xs)
     make_folder(folder)
     if folder[-1] != "/":
         folder += "/"
@@ -94,6 +105,18 @@ def main():
     for scale in scales:
         pipeline(folder + "state-sinz_scale-" + str(scale), scale=scale,
                  noise_type='sinz')
+
+    # generate data without state-dependent noise
+    scales = [1.0, 5.0, 25.0, 100.0, 200.0, 250.0]
+    for scale in scales:
+        pipeline(folder + "state-raw_scale-" + str(scale), noise_type='raw',
+                 scale=scale)
+
+    # generate data by adding noise to observations after
+    scales = [1.0, 2.5, 5.0, 25.0, 100.0]
+    for scale in scales:
+        pipeline(folder + "state-after_scale-" + str(scale), noise_type='after',
+                 scale=scale)
     
 
 
