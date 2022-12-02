@@ -39,11 +39,17 @@ def get_equations(net, model_type, device, z_dim, poly_order, include_constant, 
     library = equation_sindy_library(z_dim, poly_order, include_constant=include_constant, include_sine=include_sine)
     equations = []
     if model_type == "HyperSINDy":
-        mean_coeffs, std_coeffs = sindy_coeffs_stats(net.get_masked_coefficients(device=device))
-        equations.append("MEAN")
-        update_equation_list(equations, library, mean_coeffs, starts, z_dim)
-        equations.append("STD")
-        update_equation_list(equations, library, std_coeffs, starts, z_dim)
+        # drift
+        sindy_coefs = net.get_masked_coefficients().detach().cpu().numpy()
+        equations.append("Drift")
+        update_equation_list(equations, library, sindy_coefs, starts, z_dim)
+        # diffusion
+        diff_term = net.sample_diffusion(device=device)
+        mean_diff, std_diff = sindy_coeffs_stats(diff_term)
+        equations.append("Drift Mean")
+        update_equation_list(equations, library, mean_diff, starts, z_dim)
+        equations.append("Drift STD")
+        update_equation_list(equations, library, std_diff, starts, z_dim)
     elif model_type == "SINDy":
         sindy_coefs = net.sindy_coefficients * net.threshold_mask
         equations.append("SINDy")

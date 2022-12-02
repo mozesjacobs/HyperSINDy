@@ -67,10 +67,11 @@ def train_epoch(net, model_type, trainloader, optim, beta, weight_decay,
     return recons, klds 
 
 def train_hyper(net, optim, x, x_lib, x_dot, beta, weight_decay, device, clip):
-    x_dot_pred, sindy_coeffs = net(x, x_lib, device)
+    x_dot_pred, diff_term = net(x, x_lib, device)
     recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
-    kld = net.kl(sindy_coeffs)
-    loss = recon + kld * beta
+    kld = net.kl(diff_term)
+    reg = (net.get_masked_coefficients() ** 2).sum()
+    loss = recon + kld * beta + reg * weight_decay
     optim.zero_grad()
     loss.backward()
     if clip is not None:
@@ -126,9 +127,11 @@ def eval_model(net, args, board, trainset, device, epoch):
                               args.z_dim, args.poly_order,
                               args.include_constant, args.include_sine)
 
-    eq_mean = str(equations[1]) + "  \n" + str(equations[2]) + "  \n" + str(equations[3])
-    eq_std = str(equations[5]) + "  \n" + str(equations[6]) + "  \n" + str(equations[7])
-    board.add_text(tag="Equations/mean", text_string=eq_mean, global_step=epoch, walltime=None)
-    board.add_text(tag="Equations/std", text_string=eq_std, global_step=epoch, walltime=None)
+    eq_drift = str(equations[1]) + "  \n" + str(equations[2]) + "  \n" + str(equations[3])
+    eq_diff_mean = str(equations[5]) + "  \n" + str(equations[6]) + "  \n" + str(equations[7])
+    eq_diff_std = str(equations[9]) + "  \n" + str(equations[10]) + "  \n" + str(equations[11])
+    board.add_text(tag="Equations/drift", text_string=eq_drift, global_step=epoch, walltime=None)
+    board.add_text(tag="Equations/diff_mean", text_string=eq_diff_mean, global_step=epoch, walltime=None)
+    board.add_text(tag="Equations/diff_std", text_string=eq_diff_std, global_step=epoch, walltime=None)
 
     #draw_equations(board, epoch, equations, args.z_dim)
