@@ -45,7 +45,7 @@ class Net(nn.Module):
         diff = torch.bmm(x.unsqueeze(1), diff_term).squeeze(1)
         
         # combine
-        return drift + diff, diff_term
+        return drift + diff, drift, diff, diff_term
     
     def dx(self, library, coefs):
         return torch.bmm(library.unsqueeze(1), coefs).squeeze(1)

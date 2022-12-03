@@ -67,8 +67,9 @@ def train_epoch(net, model_type, trainloader, optim, beta, weight_decay,
     return recons, klds 
 
 def train_hyper(net, optim, x, x_lib, x_dot, beta, weight_decay, device, clip):
-    x_dot_pred, diff_term = net(x, x_lib, device)
-    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
+    x_dot_pred, drift, diff, diff_term = net(x, x_lib, device)
+    recon = ((drift - x_dot) ** 2).sum(1).mean()
+    recon += ((x_dot_pred - x_dot) ** 2).sum(1).mean() * 1e-2
     kld = net.kl(diff_term)
     reg = (net.get_masked_coefficients() ** 2).sum()
     loss = recon + kld * beta + reg * weight_decay
