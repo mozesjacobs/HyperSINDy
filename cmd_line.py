@@ -26,11 +26,11 @@ def parse_args():
     parser.add_argument('-DF', '--data_folder', default='./data/', type=str, help="Base folder where all data is stored")
     parser.add_argument('-EX', '--experiments', default='./experiments/', type=str, help="Output folder for experiments")
     parser.add_argument('-MF', '--model_folder', default='./trained_models/', type=str, help="Output folder for experiments")
-    parser.add_argument('-TB', '--tensorboard_folder', default='./runs/', type=str, help="Output folder for tensorboard")
+    parser.add_argument('-TB', '--tensorboard_folder', default='./runs/laplace/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
     parser.add_argument('-sess', '--session_name', default='1', type=str, help="Appended to last part of file names")
-    parser.add_argument('-DAT', '--date', default="11-28-22", type=str, help="The date"),
+    parser.add_argument('-DAT', '--date', default="12-03-22", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="HyperSINDy", type=str, help="Model to use")
     parser.add_argument('-DS', '--dataset', default="lorenz", type=str, help="Which dataset to use (lorenz)")
     parser.add_argument('-NOISET', '--noise_type', default='after', type=str, help='Type of state-dependent noise (x, sinz)')
