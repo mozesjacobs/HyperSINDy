@@ -10,7 +10,7 @@ def get_hparams_path(hpd):
     path = "B-" + str(hpd.beta) + "_WD-" + str(hpd.weight_decay) + "_T-" + str(hpd.threshold)
     path += "_TI-" + str(hpd.threshold_interval) + "_ND-" + str(hpd.threshold_interval)
     path += "_HD-" + str(hpd.hidden_dim) + "_E-" + str(hpd.epochs)
-    path += "_LR-" + str(hpd.epochs) + "_BS-" + str(hpd.batch_size)
+    path += "_LR-" + str(hpd.learning_rate) + "_BS-" + str(hpd.batch_size)
     path += "_AR-" + str(hpd.adam_reg) + "_C-" + str(hpd.clip)
     return path
 
