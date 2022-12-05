@@ -49,20 +49,31 @@ class Net(nn.Module):
         return self.hypernet(n)
 
     def get_masked_coefficients(self, n=None, batch_size=None, device=0):
-        return self.sample_coeffs(n, batch_size, device) * self.threshold_mask
+        coefs = self.sample_coeffs(n, batch_size, device)
+        mask = torch.abs(coefs) > 0.05
+        #print(mask)
+        #print(coefs * mask)
+        return coefs * mask
+        #return self.sample_coeffs(n, batch_size, device) * self.threshold_mask
 
     def update_threshold_mask(self, threshold, device):
-        coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
-        self.threshold_mask[torch.abs(coefs) < threshold] = 0
+        pass
+        #coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
+        #self.threshold_mask[torch.abs(coefs) < threshold] = 0
     
     # KL function taken from:
     # https://github.com/pawni/BayesByHypernet_Pytorch/blob/master/model.py
     def kl(self, sindy_coeffs):
-        num_samples = sindy_coeffs.size(0)
-        masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
-        gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
+        num_samples, device = sindy_coeffs.size(0), sindy_coeffs.device
+
+        coefs = self.sample_coeffs(batch_size=num_samples, device=device)
+        gen_weights = coefs.reshape(num_samples, -1).transpose(1, 0)
+
+        #masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
+        #gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
+
         prior_samples = torch.randn_like(gen_weights)
-        eye = torch.eye(num_samples, device=gen_weights.device) # 250 x 250
+        eye = torch.eye(num_samples, device=device) # 250 x 250
         wp_distances = (prior_samples.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2  # 60 x 250 x 250
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
 

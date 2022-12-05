@@ -60,5 +60,7 @@ def plot_weight_distribution(fpath, coeffs):
     plt.close()
 
 def sindy_coeffs_stats(sindy_coeffs):
+    #mean_coefs, std_coefs = torch.mean(sindy_coeffs, 0), torch.std(sindy_coeffs, 0)
+    #return mean_coefs * (torch.abs(mean_coefs) > 0.05), std_coefs * (torch.abs(std_coefs) > 0.05)
     coefs = sindy_coeffs.detach().cpu().numpy()
     return np.mean(coefs, axis=0), np.std(coefs, axis=0)
