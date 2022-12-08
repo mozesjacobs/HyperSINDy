@@ -53,13 +53,12 @@ class Net(nn.Module):
         mask = torch.abs(coefs) > 0.05
         #print(mask)
         #print(coefs * mask)
-        return coefs * mask
+        return coefs * mask * self.threshold_mask
         #return self.sample_coeffs(n, batch_size, device) * self.threshold_mask
 
     def update_threshold_mask(self, threshold, device):
-        pass
-        #coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
-        #self.threshold_mask[torch.abs(coefs) < threshold] = 0
+        coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
+        self.threshold_mask[torch.abs(coefs) < threshold] = 0
     
     # KL function taken from:
     # https://github.com/pawni/BayesByHypernet_Pytorch/blob/master/model.py
@@ -78,8 +77,8 @@ class Net(nn.Module):
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
 
         # zero out indices that were thresholded so kl isn't calculated for them
-        #wp_distances = wp_distances * self.threshold_mask
-        #ww_distances = ww_distances * self.threshold_mask
+        wp_distances = wp_distances * self.threshold_mask.reshape(-1, 1, 1)
+        ww_distances = ww_distances * self.threshold_mask.reshape(-1, 1, 1)
         
         wp_distances = torch.sqrt(torch.sum(wp_distances, 0) + 1e-8) # 250 x 250
         wp_dist = torch.min(wp_distances, 0)[0] # 250
