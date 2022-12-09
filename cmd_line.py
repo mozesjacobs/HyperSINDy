@@ -10,7 +10,7 @@ def parse_hyperparams():
     parser.add_argument('-TI', '--threshold_interval', default=100, type=float, help="Epoch interval to threshold sindy coefs during training")
     parser.add_argument('-NE', '--num_ensemble', default=25, type=int, help="Number of SINDy models in the ensemble")
     parser.add_argument('-HD', '--hidden_dim', default=64, type=str, help="Dimension of hidden layers hypernet")
-    parser.add_argument('-E', '--epochs', default=301, type=float, help="Number of epochs to train for")
+    parser.add_argument('-E', '--epochs', default=501, type=float, help="Number of epochs to train for")
     parser.add_argument('-LR', '--learning_rate', default=1e-2, type=float, help="Learning rate")
     parser.add_argument('-BS', '--batch_size', default=250, type=float, help="Batch size")
     parser.add_argument('-AR', '--adam_reg', default=0, type=float, help="Regularization to use in ADAM optimizer")
@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('-TB', '--tensorboard_folder', default='./runs/esindy/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
-    parser.add_argument('-sess', '--session_name', default='4', type=str, help="Appended to last part of file names")
+    parser.add_argument('-sess', '--session_name', default='2', type=str, help="Appended to last part of file names")
     parser.add_argument('-DAT', '--date', default="12-09-22", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="ESINDy", type=str, help="Model to use")
     parser.add_argument('-DS', '--dataset', default="lorenz", type=str, help="Which dataset to use (lorenz)")
