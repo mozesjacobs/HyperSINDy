@@ -11,9 +11,13 @@ from src.utils.model_utils import equation_sindy_library
 def sample_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
     zc = torch.from_numpy(x0).type(torch.FloatTensor).to(device)
     zc = torch.stack([zc for _ in range(batch_size)], dim=0)
+    zc = zc[:, 0]
     zs = []
+    coefs = net.get_masked_coefficients().mean(0)
     for i in range(ts):
-        zc = zc + net(zc, device=device)[0] * dt
+        lib = net.make_library(zc)
+        zc = zc + torch.matmul(lib, coefs) * dt
+        #zc = zc + net(zc, device=device)[0] * dt
         zs.append(zc)
     zs = torch.stack(zs, dim=0)
     zs = torch.transpose(zs, 0, 1)
@@ -38,7 +42,7 @@ def get_equations(net, model_type, device, z_dim, poly_order, include_constant, 
     starts = ["X' = ", "Y' = ", "Z' = "]
     library = equation_sindy_library(z_dim, poly_order, include_constant=include_constant, include_sine=include_sine)
     equations = []
-    if model_type == "HyperSINDy":
+    if model_type == "ESINDy":
         mean_coeffs, std_coeffs = sindy_coeffs_stats(net.get_masked_coefficients(device=device))
         equations.append("MEAN")
         update_equation_list(equations, library, mean_coeffs, starts, z_dim)

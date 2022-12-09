@@ -6,11 +6,11 @@ from src.utils.path_utils import *
 from src.utils.model_utils import init_weights
 
 
-def load_data(args):
+def load_data(args, hyperparams):
     # train and val data (using val as "test" data)
     fpath = get_data_path(args.data_folder, args.dataset,
                           args.noise_type, str(args.noise_scale))
-    return SyntheticDataset(args, fpath)
+    return SyntheticDataset(args, hyperparams, fpath)
 
 def load_checkpoint(cp_path, net, optim, scheduler, device):
     checkpoint = torch.load(cp_path, map_location="cuda:" + str(device))
@@ -22,8 +22,8 @@ def load_checkpoint(cp_path, net, optim, scheduler, device):
     return net, optim, scheduler, initial_e
 
 def make_model(args, hyperparams, device):
-    if args.model == 'HyperSINDy':
-        from src.models.HyperSINDy import Net
+    if args.model == 'ESINDy':
+        from src.models.ESINDy import Net
     elif args.model == 'SINDy':
         from src.models.SINDy import Net
     net = Net(args, hyperparams).to(device)

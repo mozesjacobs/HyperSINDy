@@ -9,25 +9,19 @@ from src.utils.plotting import draw_equations, plot_trajectory
 def train(net, args, hyperparams, optim, scheduler, trainloader, trainset, 
           board, cp_path, initial_epoch, device): 
     
-    beta = args.beta_init
-    beta_max = hyperparams.beta
-    beta_inc = args.beta_inc
-    if beta_inc is None:
-        beta_inc = beta_max / 100.0
 
     for epoch in range(initial_epoch, hyperparams.epochs + initial_epoch):
         # one train step
-        recons, klds = train_epoch(
-            net, args.model, trainloader, optim, beta,
+        recons, regs = train_epoch(
+            net, args.model, trainloader, optim,
             hyperparams.weight_decay, device, hyperparams.clip)
 
         # log losses
-        log_losses(board, recons / len(trainloader), klds / len(trainloader), epoch)
+        log_losses(board, recons / len(trainloader), regs / len(trainloader), epoch)
 
         # threshold
         update_threshold_mask(net, args.model, hyperparams.threshold,
-                              hyperparams.threshold_interval, epoch, device,
-                              beta, beta_max)
+                              hyperparams.threshold_interval, epoch, device)
 
         # save
         if (epoch % args.checkpoint_interval == 0) and (epoch != 0):
@@ -38,45 +32,44 @@ def train(net, args, hyperparams, optim, scheduler, trainloader, trainset,
             eval_model(net.eval(), args, board, trainset, device, epoch)
 
         scheduler.step()
-        beta = update_beta(beta, beta_inc, beta_max)
 
     save_model(cp_path, net, optim, scheduler, epoch)
     eval_model(net.eval(), args, board, trainset, device, epoch)
 
     return net, optim, scheduler
 
-def train_epoch(net, model_type, trainloader, optim, beta, weight_decay,
+def train_epoch(net, model_type, trainloader, optim, weight_decay,
                 device, clip):
     # train mode
     net = net.train()
     
-    recons, klds = 0, 0
+    recons, regs = 0, 0
     for i, (x, x_lib, x_dot) in enumerate(trainloader):
         x_dot = x_dot.type(torch.FloatTensor).to(device)
 
         # one gradient step
-        if model_type == "HyperSINDy":
-            recon, kld = train_hyper(net, optim, x, x_lib, x_dot, beta,
-                                     weight_decay, device, clip)
+        if model_type == "ESINDy":
+            recon, reg = train_ensemble(net, optim, x, x_lib, x_dot,
+                                        weight_decay, device, clip)
         elif model_type == "SINDy":
-            recon, kld = train_sindy(net, optim, x, x_lib, x_dot, weight_decay,
+            recon, reg = train_sindy(net, optim, x, x_lib, x_dot, weight_decay,
                                      device, clip)
 
         recons += recon
-        klds += kld
-    return recons, klds 
+        regs += reg
+    return recons, regs 
 
-def train_hyper(net, optim, x, x_lib, x_dot, beta, weight_decay, device, clip):
+def train_ensemble(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
-    recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
-    kld = net.kl(sindy_coeffs)
-    loss = recon + kld * beta
+    recon = ((x_dot_pred - x_dot) ** 2).sum(2).mean()
+    reg = (sindy_coeffs ** 2).sum((1, 2)).mean() * weight_decay
+    loss = recon + reg
     optim.zero_grad()
     loss.backward()
     if clip is not None:
         nn.utils.clip_grad_norm_(net.parameters(), clip)
     optim.step()
-    return recon.item(), kld.item()
+    return recon.item(), reg
 
 
 def train_sindy(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
@@ -90,21 +83,17 @@ def train_sindy(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
     if clip is not None:
         n.utils.clip_grad_norm_(net.parameters(), clip)
     optim.step()
-    return recon, 0
+    return recon, regularization
 
-def update_threshold_mask(net, model_type, threshold, threshold_timer, epoch, device, beta, beta_max):
+def update_threshold_mask(net, model_type, threshold, threshold_timer, epoch, device):
     with torch.no_grad():
-        if (epoch % threshold_timer == 0) and (epoch != 0) and (beta == beta_max):
-            if (model_type == "HyperSINDy"):
-                if (beta == beta_max):
-                    net.update_threshold_mask(threshold, device)
-            else:
-                net.update_threshold_mask(threshold, device)
+        if (epoch % threshold_timer == 0) and (epoch != 0):
+            net.update_threshold_mask(threshold, device)
 
-def log_losses(board, recon, kl, epoch):
+def log_losses(board, recon, reg, epoch):
     # tensorboard
     board.add_scalar("Loss/(x_dot_pred - x_dot) ** 2", recon, epoch)
-    board.add_scalar("Loss/kld", kl, epoch)
+    board.add_scalar("Loss/reg", reg, epoch)
 
 
 def update_beta(beta, beta_increment, beta_max):

@@ -51,9 +51,9 @@ def plot_trajectory(board, epoch, z_true, z_pred, figsize=None):
             ax.plot(z_true[:,1], color='green', label='Y GT')
             ax.legend(loc='best')
         elif z_dim == 3:
-            if i == 0:
-                ax = fig.add_subplot(1, batch_size + 1, i + 1, projection='3d')
-                ax.plot(z_true[:,0], z_true[:,1], z_true[:,2], color='red', label="GT")
+            #if i == 0:
+            #    ax = fig.add_subplot(1, batch_size + 1, i + 1, projection='3d')
+            #    ax.plot(z_true[:,0], z_true[:,1], z_true[:,2], color='red', label="GT")
             ax = fig.add_subplot(1, batch_size + 1, i + 1, projection='3d')
             ax.plot(z_pred[i, :,0], z_pred[i, :,1], z_pred[i, :,2], color='blue', label="Pred")
     fig.subplots_adjust(wspace=0.0, hspace=0.0)

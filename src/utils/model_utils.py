@@ -25,7 +25,7 @@ def sindy_library(X, poly_order=3, include_sine=False, include_mult_sine=False, 
     m, n = X.shape
     device = X.device
     l = library_size(n, poly_order, include_sine, include_mult_sine, include_constant)
-    library = torch.ones((m,l), device=device)
+    library = torch.ones((m, l), device=device)
     index = 0
     
     if include_constant:

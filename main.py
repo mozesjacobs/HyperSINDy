@@ -19,7 +19,7 @@ def main():
     hyperparams = parse_hyperparams()
 
     # train and val data (will refer to the val data as test data)
-    train_set = load_data(args)
+    train_set = load_data(args, hyperparams)
 
     # device
     torch.cuda.set_device(args.device)
@@ -36,10 +36,6 @@ def main():
 
     # boards
     train_board = SummaryWriter(tb_path, purge_step=True)
-    #train_board.add_hparams(hparam_dict=vars(hyperparams), metric_dict={},
-    #train_board.add_hparams(hparam_dict=vars(hyperparams),
-    #    metric_dict={'hparam/accuracy': 25, 'hparam/accuracy2': 25},
-    #    hparam_domain_discrete=None, run_name='')
 
     # create model, optim, scheduler, initial epoch
     net, optim, scheduler, initial_epoch = make_model(args, hyperparams, device)
