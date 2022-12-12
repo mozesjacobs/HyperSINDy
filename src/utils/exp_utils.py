@@ -46,9 +46,10 @@ def get_equations(net, model_type, device, z_dim, poly_order, include_constant, 
         # diffusion
         diff_term = net.sample_diffusion(device=device)
         mean_diff, std_diff = sindy_coeffs_stats(diff_term)
-        equations.append("Drift Mean")
+        library = equation_sindy_library(z_dim, poly_order, include_constant=False, include_sine=include_sine)
+        equations.append("Diff Mean")
         update_equation_list(equations, library, mean_diff, starts, z_dim)
-        equations.append("Drift STD")
+        equations.append("Diff STD")
         update_equation_list(equations, library, std_diff, starts, z_dim)
     elif model_type == "SINDy":
         sindy_coefs = net.sindy_coefficients * net.threshold_mask
