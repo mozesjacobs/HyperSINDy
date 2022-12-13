@@ -29,12 +29,12 @@ def parse_args():
     parser.add_argument('-TB', '--tensorboard_folder', default='./runs/esindy/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
-    parser.add_argument('-sess', '--session_name', default='2', type=str, help="Appended to last part of file names")
+    parser.add_argument('-sess', '--session_name', default='3', type=str, help="Appended to last part of file names")
     parser.add_argument('-DAT', '--date', default="12-12-22", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="ESINDy", type=str, help="Model to use")
     parser.add_argument('-DS', '--dataset', default="lorenz", type=str, help="Which dataset to use (lorenz)")
-    parser.add_argument('-NOISET', '--noise_type', default='xother', type=str, help='Type of state-dependent noise (x, sinz)')
-    parser.add_argument('-NOISES', '--noise_scale', default=100.0, type=float, help='Scale of noise in data. Review data folder.')
+    parser.add_argument('-NOISET', '--noise_type', default='after', type=str, help='Type of state-dependent noise (x, sinz)')
+    parser.add_argument('-NOISES', '--noise_scale', default=5.0, type=float, help='Scale of noise in data. Review data folder.')
 
     # sindy parameters
     parser.add_argument('-Z', '--z_dim', default=3, type=int, help="Size of latent vector")
@@ -61,7 +61,7 @@ def parse_args():
     parser.add_argument('-D', '--device', default=3, type=int, help='Which GPU to use')
     parser.add_argument('-LCP', '--load_cp', default=0, type=int, help='If 1, loads the model from the checkpoint. If 0, does not')
     parser.add_argument('-PF', '--print_folder', default=1, type=int, help='Iff true, prints the folder for different logs')
-    parser.add_argument('-DT', '--dt', default=0.001, type=float, help='Time change in dataset')
+    parser.add_argument('-DT', '--dt', default=0.01, type=float, help='Time change in dataset')
     parser.add_argument('-SBS', '--statistic_batch_size', default=500, type=str, help="Default batch size to sample")
     
     return parser.parse_args()
