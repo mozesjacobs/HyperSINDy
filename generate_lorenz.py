@@ -35,6 +35,11 @@ def lorenz(x, y, z, s=10, r=28, b=2.667, param_std=1.0, noise_type='x'):
         x_dot = s * (y - x)
         y_dot = r * x - y - x * z
         z_dot = x * y - b * z
+    elif noise_type == 'cosalphax':
+        x_dot = s * (y - x) + -2 * np.cos(np.sqrt(3) * x)
+        y_dot = r * x - y - x * z + -2 * np.cos(np.sqrt(3) * x)
+        z_dot = x * y - b * z + -2 * np.cos(np.sqrt(3) * x)
+        print(1 * np.cos(np.sqrt(3) * x))
     
     return x_dot, y_dot, z_dot
 
@@ -88,6 +93,15 @@ def pipeline(folder, scale=1.0, s=10, r=28, b=8.0/3, steps=10000, dt=1e-2,
     np.save(folder + "x_train", x_train)
     np.save(folder + "x_dot", x_dot_train_measured)
 
+    """
+    import matplotlib.pyplot as plt
+    from mpl_toolkits import mplot3d
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    ax.plot(x_train[:,0], x_train[:,1], x_train[:,2])
+    plt.savefig("biblo.png")
+    """
+
 def main():
     # Seed for reproducibility
     np.random.seed(1000)  
@@ -95,6 +109,7 @@ def main():
     # Data folder
     folder = "data/lorenz/"
     
+    #"""
     # generate data with x noise with following scales (standard deviation)
     scales = [0.0, 1.0, 2.5, 5.0]
     for scale in scales:
@@ -117,6 +132,14 @@ def main():
     for scale in scales:
         pipeline(folder + "state-after_scale-" + str(scale), noise_type='after',
                  scale=scale)
+    #"""
+
+    # generate data by adding noise to observations after
+    scales = [np.sqrt(3)]
+    for scale in scales:
+        pipeline(folder + "state-cosalpahax_scale-0.0",
+                 noise_type='cosalphax',
+                 scale=0.0)
     
 
 
