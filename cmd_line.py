@@ -30,7 +30,7 @@ def parse_args():
 
     # saving specifics
     parser.add_argument('-sess', '--session_name', default='1', type=str, help="Appended to last part of file names")
-    parser.add_argument('-DAT', '--date', default="12-03-22", type=str, help="The date"),
+    parser.add_argument('-DAT', '--date', default="1-03-23", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="HyperSINDy", type=str, help="Model to use")
     parser.add_argument('-DS', '--dataset', default="lorenz", type=str, help="Which dataset to use (lorenz)")
     parser.add_argument('-NOISET', '--noise_type', default='after', type=str, help='Type of state-dependent noise (x, sinz)')
