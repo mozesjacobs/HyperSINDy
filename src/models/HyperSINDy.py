@@ -49,12 +49,7 @@ class Net(nn.Module):
         return self.hypernet(n)
 
     def get_masked_coefficients(self, n=None, batch_size=None, device=0):
-        coefs = self.sample_coeffs(n, batch_size, device)
-        mask = torch.abs(coefs) > 0.05
-        #print(mask)
-        #print(coefs * mask)
-        return coefs * mask * self.threshold_mask
-        #return self.sample_coeffs(n, batch_size, device) * self.threshold_mask
+        return self.sample_coeffs(n, batch_size, device) * self.threshold_mask
 
     def update_threshold_mask(self, threshold, device):
         coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
@@ -63,22 +58,17 @@ class Net(nn.Module):
     # KL function taken from:
     # https://github.com/pawni/BayesByHypernet_Pytorch/blob/master/model.py
     def kl(self, sindy_coeffs):
-        num_samples, device = sindy_coeffs.size(0), sindy_coeffs.device
-
-        coefs = self.sample_coeffs(batch_size=num_samples, device=device)
-        gen_weights = coefs.reshape(num_samples, -1).transpose(1, 0)
-
-        #masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
-        #gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
-
+        num_samples = sindy_coeffs.size(0)
+        masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
+        gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
         prior_samples = torch.randn_like(gen_weights)
-        eye = torch.eye(num_samples, device=device) # 250 x 250
+        eye = torch.eye(num_samples, device=gen_weights.device) # 250 x 250
         wp_distances = (prior_samples.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2  # 60 x 250 x 250
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
 
         # zero out indices that were thresholded so kl isn't calculated for them
-        wp_distances = wp_distances * self.threshold_mask.reshape(-1, 1, 1)
-        ww_distances = ww_distances * self.threshold_mask.reshape(-1, 1, 1)
+        #wp_distances = wp_distances * self.threshold_mask
+        #ww_distances = ww_distances * self.threshold_mask
         
         wp_distances = torch.sqrt(torch.sum(wp_distances, 0) + 1e-8) # 250 x 250
         wp_dist = torch.min(wp_distances, 0)[0] # 250
