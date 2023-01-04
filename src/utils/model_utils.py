@@ -77,14 +77,14 @@ def sindy_library(X, poly_order=3, include_sine=False, include_mult_sine=False, 
 
     return library
     
-def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, include_mult_sine=False, include_constant=True):
+def equation_sindy_library(n=5, poly_order=3, device=1, include_sine=False, include_mult_sine=False, include_constant=True):
     # timesteps x latent dim
     l = library_size(n, poly_order, include_sine, include_constant)
     str_lib = []
     if include_constant:
         index = 1
         str_lib = ['']
-    X = ['x', 'y', 'z']
+    X = ['x1', 'x2', 'x3', 'x4', 'x5']
     
     for i in range(n):
         str_lib.append(X[i])
