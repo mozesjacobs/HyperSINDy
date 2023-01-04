@@ -9,7 +9,7 @@ def parse_hyperparams():
     parser.add_argument('-ST', '--soft_threshold', default=0.05, type=float, help="Soft threshold to 0 coefficient samples. 0 to disable.")
     parser.add_argument('-B', '--beta', default=1.0, type=float, help="KL divergence weight in loss (only for HyperSINDy)")
     parser.add_argument('-ND', '--noise_dim', default=25, type=int, help="Noise vector dimension for HyperSINDy")
-    parser.add_argument('-HD', '--hidden_dim', default=128, type=str, help="Dimension of hidden layers hypernet")
+    parser.add_argument('-HD', '--hidden_dim', default=256, type=str, help="Dimension of hidden layers hypernet")
 
     # Just affects SINDy
     parser.add_argument('-WD', '--weight_decay', default=1e-3, type=float, help="Weight decay for sindy coefficients (only for SINDy)")
