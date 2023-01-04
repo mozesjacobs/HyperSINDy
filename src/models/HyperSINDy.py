@@ -22,7 +22,8 @@ class Net(nn.Module):
         self.hypernet = HyperNet(self.noise_dim, (self.library_dim, self.z_dim),
             [self.hypernet_hidden_dim for _ in range(4)])
 
-        self.threshold_mask = nn.Parameter(torch.ones(self.library_dim, self.z_dim),
+        self.soft_threshold = hyperparams.soft_threshold
+        self.hard_threshold_mask = nn.Parameter(torch.ones(self.library_dim, self.z_dim),
             requires_grad=False)
     
         
@@ -50,15 +51,13 @@ class Net(nn.Module):
 
     def get_masked_coefficients(self, n=None, batch_size=None, device=0):
         coefs = self.sample_coeffs(n, batch_size, device)
-        mask = torch.abs(coefs) > 0.05
-        #print(mask)
-        #print(coefs * mask)
-        return coefs * mask * self.threshold_mask
-        #return self.sample_coeffs(n, batch_size, device) * self.threshold_mask
+        soft_mask = torch.abs(coefs) > soft_threshold
+        return coefs * soft_mask * self.hard_threshold_mask
 
     def update_threshold_mask(self, threshold, device):
-        coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
-        self.threshold_mask[torch.abs(coefs) < threshold] = 0
+        if threshold is not None:
+            coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
+            self.hard_threshold_mask[torch.abs(coefs) < threshold] = 0
     
     # KL function taken from:
     # https://github.com/pawni/BayesByHypernet_Pytorch/blob/master/model.py
@@ -67,10 +66,7 @@ class Net(nn.Module):
 
         coefs = self.sample_coeffs(batch_size=num_samples, device=device)
         gen_weights = coefs.reshape(num_samples, -1).transpose(1, 0)
-
-        #masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
-        #gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
-
+        
         prior_samples = torch.randn_like(gen_weights)
         eye = torch.eye(num_samples, device=device) # 250 x 250
         wp_distances = (prior_samples.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2  # 60 x 250 x 250
