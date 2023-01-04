@@ -15,6 +15,7 @@ def parse_hyperparams():
     parser.add_argument('-BS', '--batch_size', default=250, type=float, help="Batch size")
     parser.add_argument('-AR', '--adam_reg', default=0, type=float, help="Regularization to use in ADAM optimizer")
     parser.add_argument('-C', '--clip', default=1.0, type=float, help="Gradient clipping value during training (None for no clipping)")
+    parser.add_argument('-P', '--prior', default="normal", type=str, help="Prior to regularize to. Options: laplace, normal")
     return parser.parse_args()
 
 
@@ -35,6 +36,7 @@ def parse_args():
     parser.add_argument('-DS', '--dataset', default="lorenz", type=str, help="Which dataset to use (lorenz)")
     parser.add_argument('-NOISET', '--noise_type', default='after', type=str, help='Type of state-dependent noise (x, sinz)')
     parser.add_argument('-NOISES', '--noise_scale', default=5.0, type=float, help='Scale of noise in data. Review data folder.')
+
 
     # sindy parameters
     parser.add_argument('-Z', '--z_dim', default=3, type=int, help="Size of latent vector")

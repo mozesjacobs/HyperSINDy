@@ -13,7 +13,7 @@ class Net(nn.Module):
         self.include_constant = args.include_constant
         self.include_sine = args.include_sine
         self.statistic_batch_size = args.statistic_batch_size
-
+        self.prior_type = hyperparams.prior
         self.hypernet_hidden_dim = hyperparams.hidden_dim
         self.noise_dim = hyperparams.noise_dim
 
@@ -24,7 +24,13 @@ class Net(nn.Module):
 
         self.threshold_mask = nn.Parameter(torch.ones(self.library_dim, self.z_dim),
             requires_grad=False)
-    
+
+        if self.prior_type == "laplace":
+            self.prior = torch.distributions.Laplace(
+                torch.zeros([self.library_dim * self.z_dim]),
+                torch.ones([self.library_dim * self.z_dim])
+            )
+        
         
     def forward(self, x, x_lib=None, device=0):
         x = x.type(torch.FloatTensor).to(device)
@@ -61,7 +67,15 @@ class Net(nn.Module):
         num_samples = sindy_coeffs.size(0)
         masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
         gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
-        prior_samples = torch.randn_like(gen_weights)
+
+        if self.prior_type == "laplace":
+            prior_samples = self.prior.rsample(torch.Size([num_samples])).T.to(sindy_coeffs.device)
+        elif self.prior_type == "normal":
+            prior_samples = torch.randn_like(gen_weights)
+        else:
+            print("ERROR: args.prior should be laplace or normal, not " + self.prior_type)
+            exit()
+        
         eye = torch.eye(num_samples, device=gen_weights.device) # 250 x 250
         wp_distances = (prior_samples.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2  # 60 x 250 x 250
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
