@@ -25,7 +25,7 @@ def train(net, args, hyperparams, optim, scheduler, trainloader, trainset,
         log_losses(board, recons / len(trainloader), klds / len(trainloader), epoch)
 
         # threshold
-        update_threshold_mask(net, args.model, hyperparams.threshold,
+        update_threshold_mask(net, args.model, hyperparams.hard_threshold,
                               hyperparams.threshold_interval, epoch, device,
                               beta, beta_max)
 

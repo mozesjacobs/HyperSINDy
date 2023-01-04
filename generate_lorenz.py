@@ -99,7 +99,7 @@ def pipeline(folder, scale=1.0, s=10, r=28, b=8.0/3, steps=10000, dt=1e-2,
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     ax.plot(x_train[:,0], x_train[:,1], x_train[:,2])
-    plt.savefig("biblo.png")
+    plt.savefig("attractor.png")
     """
 
 def main():

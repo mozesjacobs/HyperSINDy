@@ -57,7 +57,7 @@ class Net(nn.Module):
 
     def get_masked_coefficients(self, n=None, batch_size=None, device=0):
         coefs = self.sample_coeffs(n, batch_size, device)
-        soft_mask = torch.abs(coefs) > soft_threshold
+        soft_mask = torch.abs(coefs) > self.soft_threshold
         return coefs * soft_mask * self.hard_threshold_mask
 
     def update_threshold_mask(self, threshold, device):
@@ -75,7 +75,7 @@ class Net(nn.Module):
         gen_weights = coefs.reshape(num_samples, -1).transpose(1, 0)
 
         if self.prior_type == "laplace":
-            prior_samples = self.prior.rsample(torch.Size([num_samples])).T.to(sindy_coeffs.device)
+            prior_samples = self.prior.rsample(torch.Size([num_samples])).T.to(device)
         elif self.prior_type == "normal":
             prior_samples = torch.randn_like(gen_weights)
         else:
