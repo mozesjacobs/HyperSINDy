@@ -7,8 +7,9 @@ def get_data_path(data_folder, dataset, noise_type, noise_scale):
     return data_folder + get_sub_data_path(dataset, noise_type, noise_scale)
 
 def get_hparams_path(hpd):
-    path = "B-" + str(hpd.beta) + "_WD-" + str(hpd.weight_decay) + "_T-" + str(hpd.threshold)
-    path += "_TI-" + str(hpd.threshold_interval) + "_ND-" + str(hpd.threshold_interval)
+    path = "B-" + str(hpd.beta) + "_WD-" + str(hpd.weight_decay)
+    path = "_ST-" + str(hpd.soft_threshold) + "_HT-" + str(hpd.hard_threshold)
+    path += "_TI-" + str(hpd.threshold_interval) + "_ND-" + str(hpd.noise_dim)
     path += "_HD-" + str(hpd.hidden_dim) + "_E-" + str(hpd.epochs)
     path += "_LR-" + str(hpd.learning_rate) + "_BS-" + str(hpd.batch_size)
     path += "_AR-" + str(hpd.adam_reg) + "_C-" + str(hpd.clip)

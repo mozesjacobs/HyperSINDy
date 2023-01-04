@@ -22,7 +22,8 @@ class Net(nn.Module):
         self.hypernet = HyperNet(self.noise_dim, (self.library_dim, self.z_dim),
             [self.hypernet_hidden_dim for _ in range(4)])
 
-        self.threshold_mask = nn.Parameter(torch.ones(self.library_dim, self.z_dim),
+        self.soft_threshold = hyperparams.soft_threshold
+        self.hard_threshold_mask = nn.Parameter(torch.ones(self.library_dim, self.z_dim),
             requires_grad=False)
 
         if self.prior_type == "laplace":
@@ -55,18 +56,23 @@ class Net(nn.Module):
         return self.hypernet(n)
 
     def get_masked_coefficients(self, n=None, batch_size=None, device=0):
-        return self.sample_coeffs(n, batch_size, device) * self.threshold_mask
+        coefs = self.sample_coeffs(n, batch_size, device)
+        soft_mask = torch.abs(coefs) > soft_threshold
+        return coefs * soft_mask * self.hard_threshold_mask
 
     def update_threshold_mask(self, threshold, device):
-        coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
-        self.threshold_mask[torch.abs(coefs) < threshold] = 0
+        if threshold is not None:
+            coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
+            self.hard_threshold_mask[torch.abs(coefs) < threshold] = 0
     
     # KL function taken from:
     # https://github.com/pawni/BayesByHypernet_Pytorch/blob/master/model.py
     def kl(self, sindy_coeffs):
-        num_samples = sindy_coeffs.size(0)
-        masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
-        gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
+        num_samples, device = sindy_coeffs.size(0), sindy_coeffs.device
+        #masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
+        #gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
+        coefs = self.sample_coeffs(batch_size=num_samples, device=device)
+        gen_weights = coefs.reshape(num_samples, -1).transpose(1, 0)
 
         if self.prior_type == "laplace":
             prior_samples = self.prior.rsample(torch.Size([num_samples])).T.to(sindy_coeffs.device)
@@ -76,13 +82,13 @@ class Net(nn.Module):
             print("ERROR: args.prior should be laplace or normal, not " + self.prior_type)
             exit()
         
-        eye = torch.eye(num_samples, device=gen_weights.device) # 250 x 250
+        eye = torch.eye(num_samples, device=device) # 250 x 250
         wp_distances = (prior_samples.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2  # 60 x 250 x 250
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
 
         # zero out indices that were thresholded so kl isn't calculated for them
-        #wp_distances = wp_distances * self.threshold_mask
-        #ww_distances = ww_distances * self.threshold_mask
+        #wp_distances = wp_distances * self.hard_threshold_mask.reshape(-1, 1, 1)
+        #ww_distances = ww_distances * self.hard_threshold_mask.reshape(-1, 1, 1)
         
         wp_distances = torch.sqrt(torch.sum(wp_distances, 0) + 1e-8) # 250 x 250
         wp_dist = torch.min(wp_distances, 0)[0] # 250
