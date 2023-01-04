@@ -69,8 +69,8 @@ class Net(nn.Module):
         ww_distances = (gen_weights.unsqueeze(2) - gen_weights.unsqueeze(1)) ** 2    # 60 x 250 x 250
 
         # zero out indices that were thresholded so kl isn't calculated for them
-        #wp_distances = wp_distances * self.threshold_mask.reshape(1, -1)
-        #ww_distances = ww_distances * self.threshold_mask.reshape(1, -1)
+        #wp_distances = wp_distances * self.threshold_mask.reshape(-1, 1, 1)
+        #ww_distances = ww_distances * self.threshold_mask.reshape(-1, 1, 1)
         
         wp_distances = torch.sqrt(torch.sum(wp_distances, 0) + 1e-8) # 250 x 250
         wp_dist = torch.min(wp_distances, 0)[0] # 250

@@ -30,8 +30,8 @@ def parse_args():
     parser.add_argument('-TB', '--tensorboard_folder', default='./runs/5d_lorenz/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
-    parser.add_argument('-sess', '--session_name', default='5', type=str, help="Appended to last part of file names")
-    parser.add_argument('-DAT', '--date', default="1-03-23", type=str, help="The date"),
+    parser.add_argument('-sess', '--session_name', default='1', type=str, help="Appended to last part of file names")
+    parser.add_argument('-DAT', '--date', default="1-04-23", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="HyperSINDy", type=str, help="Model to use")
     parser.add_argument('-DS', '--dataset', default="5d_lorenz", type=str, help="Which dataset to use (lorenz)")
     parser.add_argument('-NOISET', '--noise_type', default='none', type=str, help='Type of state-dependent noise (x, sinz)')
