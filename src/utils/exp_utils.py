@@ -35,7 +35,9 @@ def update_equation_list(equations, library, coefs, starts, z_dim):
         equations.append(build_equation(library, coefs[:,i], starts[i]))
 
 def get_equations(net, model_type, device, z_dim, poly_order, include_constant, include_sine):
-    starts = ["X' = ", "Y' = ", "Z' = "]
+    starts = ["dx = ", "dy = ", "dz = "]
+    if z_dim == 5:
+        starts = ["dx1' = ", "dx2' = ", "dx3' = ", 'dx4 = ', 'dx5 = ']
     library = equation_sindy_library(z_dim, poly_order, include_constant=include_constant, include_sine=include_sine)
     equations = []
     if model_type == "HyperSINDy":

@@ -128,6 +128,9 @@ def eval_model(net, args, board, trainset, device, epoch):
 
     eq_mean = str(equations[1]) + "  \n" + str(equations[2]) + "  \n" + str(equations[3])
     eq_std = str(equations[5]) + "  \n" + str(equations[6]) + "  \n" + str(equations[7])
+    if args.z_dim == 5:
+        eq_mean = str(equations[1]) + "  \n" + str(equations[2]) + "  \n" + str(equations[3]) + "  \n" + str(equations[4]) + "  \n" + str(equations[5])
+        eq_std = str(equations[7]) + "  \n" + str(equations[8]) + "  \n" + str(equations[9]) + "  \n" + str(equations[10]) + "  \n" + str(equations[11])
     board.add_text(tag="Equations/mean", text_string=eq_mean, global_step=epoch, walltime=None)
     board.add_text(tag="Equations/std", text_string=eq_std, global_step=epoch, walltime=None)
 

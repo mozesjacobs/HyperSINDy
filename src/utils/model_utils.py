@@ -84,7 +84,10 @@ def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, incl
     if include_constant:
         index = 1
         str_lib = ['']
+    
     X = ['x', 'y', 'z']
+    if n == 5: 
+        X = ['x1', 'x2', 'x3', 'x4', 'x5']
     
     for i in range(n):
         str_lib.append(X[i])
