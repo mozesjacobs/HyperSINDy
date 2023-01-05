@@ -8,7 +8,7 @@ from src.utils.model_utils import equation_sindy_library
 
 
 # returns: batch_size x ts x z_dim
-def sample_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
+def sample_ensemble_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
     zc = torch.from_numpy(x0).type(torch.FloatTensor).to(device)
     zc = torch.stack([zc for _ in range(batch_size)], dim=0)
     zc = zc[:, 0]
