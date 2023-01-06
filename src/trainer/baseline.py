@@ -17,12 +17,12 @@ def train(net, args, hyperparams, optim, scheduler, trainloader, trainset,
 
     for epoch in range(initial_epoch, hyperparams.epochs + initial_epoch):
         # one train step
-        recons, klds = train_epoch(
+        recons, regs = train_epoch(
             net, args.model, trainloader, optim, beta,
             hyperparams.weight_decay, device, hyperparams.clip)
 
         # log losses
-        log_losses(board, recons / len(trainloader), klds / len(trainloader), epoch)
+        log_losses(args.model, board, recons / len(trainloader), regs / len(trainloader), epoch)
 
         # threshold
         update_threshold_mask(net, args.model, hyperparams.hard_threshold,
@@ -50,24 +50,24 @@ def train_epoch(net, model_type, trainloader, optim, beta, weight_decay,
     # train mode
     net = net.train()
     
-    recons, klds = 0, 0
+    recons, regs = 0, 0
     for i, (x, x_lib, x_dot) in enumerate(trainloader):
         x_dot = x_dot.type(torch.FloatTensor).to(device)
 
         # one gradient step
         if model_type == "HyperSINDy":
-            recon, kld = train_hyper(net, optim, x, x_lib, x_dot, beta,
+            recon, reg = train_hyper(net, optim, x, x_lib, x_dot, beta,
                                      device, clip)
         elif model_type == "ESINDy":
-            recon, kld = train_ensemble(net, optim, x, x_lib, x_dot, weight_decay,
+            recon, reg = train_ensemble(net, optim, x, x_lib, x_dot, weight_decay,
                                         device, clip)
         elif model_type == "SINDy":
-            recon, kld = train_sindy(net, optim, x, x_lib, x_dot, weight_decay,
+            recon, reg = train_sindy(net, optim, x, x_lib, x_dot, weight_decay,
                                      device, clip)
 
         recons += recon
-        klds += kld
-    return recons, klds 
+        regs += reg
+    return recons, regs
 
 def train_hyper(net, optim, x, x_lib, x_dot, beta, device, clip):
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
@@ -127,10 +127,13 @@ def update_threshold_mask(net, model_type, threshold, threshold_timer, epoch, de
                 net.update_threshold_mask(threshold)
 
 # TODO: kld or reg depending on model
-def log_losses(board, recon, kl, epoch):
+def log_losses(model_type, board, recon, reg, epoch):
     # tensorboard
     board.add_scalar("Loss/(x_dot_pred - x_dot) ** 2", recon, epoch)
-    board.add_scalar("Loss/kld", kl, epoch)
+    if model_type == "HyperSINDy":
+        board.add_scalar("Loss/kld", reg, epoch)
+    elif model_type == "ESINDy" or model_type == "SINDy":
+        board.add_scalar("Loss/reg", reg, epoch)
 
 
 def update_beta(beta, beta_increment, beta_max):
