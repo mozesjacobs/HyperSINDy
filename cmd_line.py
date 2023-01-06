@@ -25,7 +25,7 @@ def parse_hyperparams():
     parser.add_argument('-BS', '--batch_size', default=250, type=float, help="Batch size")
     parser.add_argument('-AR', '--adam_reg', default=0, type=float, help="Regularization to use in ADAM optimizer")
     parser.add_argument('-C', '--clip', default=1.0, type=float, help="Gradient clipping value during training (None for no clipping)")
-    parser.add_argument('-P', '--prior', default="normal", type=str, help="Prior to regularize to. Options: laplace, normal. For SINDy, uses L1 or L2 norm, respectively. For HyperSINDy, affects KL.")
+    parser.add_argument('-P', '--prior', default="lasso", type=str, help="Prior to regularize to. Options: laplace, normal. For SINDy, uses L1 or L2 norm, respectively. For HyperSINDy, affects KL.")
     return parser.parse_args()
 
 
@@ -37,18 +37,18 @@ def parse_args():
     parser.add_argument('-DF', '--data_folder', default='./data/', type=str, help="Base folder where all data is stored")
     parser.add_argument('-EX', '--experiments', default='./experiments/', type=str, help="Output folder for experiments")
     parser.add_argument('-MF', '--model_folder', default='./trained_models/', type=str, help="Output folder for experiments")
-    parser.add_argument('-TB', '--tensorboard_folder', default='./runs/esindy2/', type=str, help="Output folder for tensorboard")
+    parser.add_argument('-TB', '--tensorboard_folder', default='./runs/experiments/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
-    parser.add_argument('-sess', '--session_name', default='debug', type=str, help="Appended to last part of file names")
+    parser.add_argument('-sess', '--session_name', default='1', type=str, help="Appended to last part of file names")
     parser.add_argument('-DAT', '--date', default="1-06-23", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="SINDy", type=str, help="Model to use")
-    parser.add_argument('-DS', '--dataset', default="lorenz", type=str, help="Which dataset to use (lorenz)")
-    parser.add_argument('-NOISET', '--noise_type', default='x', type=str, help='Type of state-dependent noise (x, sinz)')
+    parser.add_argument('-DS', '--dataset', default="other_5d_lorenz", type=str, help="Which dataset to use (lorenz)")
+    parser.add_argument('-NOISET', '--noise_type', default='none', type=str, help='Type of state-dependent noise (x, sinz)')
     parser.add_argument('-NOISES', '--noise_scale', default=0.0, type=float, help='Scale of noise in data. Review data folder.')
 
     # sindy parameters
-    parser.add_argument('-Z', '--z_dim', default=3, type=int, help="Size of latent vector")
+    parser.add_argument('-Z', '--z_dim', default=5, type=int, help="Size of latent vector")
     parser.add_argument('-PO', '--poly_order', default=3, type=int, help="Size of theta library for SINDy")
     parser.add_argument('-INCC', '--include_constant', default=True, type=bool, help="IFF True, includes sine in SINDy library")
     parser.add_argument('-INCS', '--include_sine', default=False, type=bool, help="IFF True, includes sine in SINDy library")
@@ -69,7 +69,7 @@ def parse_args():
     parser.add_argument('-ETS', '--exp_timesteps', default=10000, type=int, help='Number of timesteps per trajectory')
 
     # other
-    parser.add_argument('-D', '--device', default=0, type=int, help='Which GPU to use')
+    parser.add_argument('-D', '--device', default=3, type=int, help='Which GPU to use')
     parser.add_argument('-LCP', '--load_cp', default=0, type=int, help='If 1, loads the model from the checkpoint. If 0, does not')
     parser.add_argument('-PF', '--print_folder', default=1, type=int, help='Iff true, prints the folder for different logs')
     parser.add_argument('-DT', '--dt', default=0.01, type=float, help='Time change in dataset')
