@@ -57,7 +57,10 @@ def train_epoch(net, model_type, trainloader, optim, beta, weight_decay,
         # one gradient step
         if model_type == "HyperSINDy":
             recon, kld = train_hyper(net, optim, x, x_lib, x_dot, beta,
-                                     weight_decay, device, clip)
+                                     device, clip)
+        elif model_type == "ESINDy":
+            recon, kld = train_ensemble(net, optim, x, x_lib, x_dot, weight_decay,
+                                        device, clip)
         elif model_type == "SINDy":
             recon, kld = train_sindy(net, optim, x, x_lib, x_dot, weight_decay,
                                      device, clip)
@@ -66,7 +69,7 @@ def train_epoch(net, model_type, trainloader, optim, beta, weight_decay,
         klds += kld
     return recons, klds 
 
-def train_hyper(net, optim, x, x_lib, x_dot, beta, weight_decay, device, clip):
+def train_hyper(net, optim, x, x_lib, x_dot, beta, device, clip):
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
     recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
     kld = net.kl(sindy_coeffs)
@@ -78,7 +81,20 @@ def train_hyper(net, optim, x, x_lib, x_dot, beta, weight_decay, device, clip):
     optim.step()
     return recon.item(), kld.item()
 
+# TODO: incorporate lasso vs l2 reg
+def train_ensemble(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
+    x_dot_pred, sindy_coeffs = net(x, x_lib, device)
+    recon = ((x_dot_pred - x_dot) ** 2).sum(2).mean()
+    reg = (sindy_coeffs ** 2).sum((1, 2)).mean() * weight_decay
+    loss = recon + reg
+    optim.zero_grad()
+    loss.backward()
+    if clip is not None:
+        nn.utils.clip_grad_norm_(net.parameters(), clip)
+    optim.step()
+    return recon.item(), reg
 
+# TODO: incorporate lasso vs l2 reg
 def train_sindy(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
     recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
@@ -94,13 +110,14 @@ def train_sindy(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
 
 def update_threshold_mask(net, model_type, threshold, threshold_timer, epoch, device, beta, beta_max):
     with torch.no_grad():
-        if (epoch % threshold_timer == 0) and (epoch != 0) and (beta == beta_max):
+        if (epoch % threshold_timer == 0) and (epoch != 0):
             if (model_type == "HyperSINDy"):
                 if (beta == beta_max):
                     net.update_threshold_mask(threshold, device)
             else:
                 net.update_threshold_mask(threshold, device)
 
+# TODO: kld or reg depending on model
 def log_losses(board, recon, kl, epoch):
     # tensorboard
     board.add_scalar("Loss/(x_dot_pred - x_dot) ** 2", recon, epoch)
@@ -114,9 +131,16 @@ def update_beta(beta, beta_increment, beta_max):
     return beta
 
 def eval_model(net, args, board, trainset, device, epoch):
-    # sample trajectory
-    z = sample_trajectory(net, device, trainset.x[0].numpy(),
-                          args.exp_batch_size, args.dt, args.exp_timesteps)
+    if args.model == "HyperSINDy" or args.model == "SINDy":
+        # sample trajectory
+        z = sample_trajectory(net, device, trainset.x[0].numpy(),
+                            args.exp_batch_size, args.dt, args.exp_timesteps)
+    elif args.model == "ESINDy":
+        # sample trajectory
+        z = sample_ensemble_trajectory(net, device, trainset.x[0].numpy(),
+                            args.exp_batch_size, args.dt, args.exp_timesteps)
+    else:
+        print("ERROR: args.model must be HyperSINDy, SINDy, or ESINDy, not " + args.model + ".")
 
     # plot trajectory
     plot_trajectory(board, epoch, trainset.x.numpy(), z)

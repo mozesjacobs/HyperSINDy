@@ -19,6 +19,22 @@ def sample_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
     zs = torch.transpose(zs, 0, 1)
     return zs.detach().cpu().numpy()
 
+# returns: batch_size x ts x z_dim
+def sample_ensemble_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
+    zc = torch.from_numpy(x0).type(torch.FloatTensor).to(device)
+    zc = torch.stack([zc for _ in range(batch_size)], dim=0)
+    zc = zc[:, 0]
+    zs = []
+    coefs = net.get_masked_coefficients().mean(0)
+    for i in range(ts):
+        lib = net.make_library(zc)
+        zc = zc + torch.matmul(lib, coefs) * dt
+        #zc = zc + net(zc, device=device)[0] * dt
+        zs.append(zc)
+    zs = torch.stack(zs, dim=0)
+    zs = torch.transpose(zs, 0, 1)
+    return zs.detach().cpu().numpy()
+
 def build_equation(lib, coef, eq):
     for i in range(len(coef)):
         if coef[i] != 0:

@@ -19,7 +19,7 @@ def main():
     hyperparams = parse_hyperparams()
 
     # train and val data (will refer to the val data as test data)
-    train_set = load_data(args)
+    train_set = load_data(args, hyperparams)
 
     # device
     torch.cuda.set_device(args.device)

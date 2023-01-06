@@ -8,23 +8,21 @@ from scipy.integrate import odeint
 # Code taken from:
 # https://github.com/kpchamp/SindyAutoencoders/blob/master/src/sindy_utils.py
 
-def library_size(n, poly_order, use_sine=False, use_mult_sine=False, include_constant=True):
+def library_size(n, poly_order, use_sine=False, include_constant=True):
     l = 0
     for k in range(poly_order+1):
         l += int(binom(n+k-1,k))
     if use_sine:
         l += n
-    if use_mult_sine:
-        l += n
     if not include_constant:
         l -= 1
     return l
 
-def sindy_library(X, poly_order=3, include_sine=False, include_mult_sine=False, include_constant=True):
+def sindy_library(X, poly_order=3, include_sine=False, include_constant=True):
     # batch x latent dim
     m, n = X.shape
     device = X.device
-    l = library_size(n, poly_order, include_sine, include_mult_sine, include_constant)
+    l = library_size(n, poly_order, include_sine, include_constant)
     library = torch.ones((m,l), device=device)
     index = 0
     
@@ -70,14 +68,9 @@ def sindy_library(X, poly_order=3, include_sine=False, include_mult_sine=False, 
             library[:,index] = torch.sin(X[:,i])
             index += 1
 
-    if include_mult_sine:
-        for i in range(n):
-            library[:,index] = X[:,i] * torch.sin(X[:,i])
-            index += 1
-
     return library
     
-def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, include_mult_sine=False, include_constant=True):
+def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, include_constant=True):
     # timesteps x latent dim
     l = library_size(n, poly_order, include_sine, include_constant)
     str_lib = []
@@ -121,10 +114,6 @@ def equation_sindy_library(n=3, poly_order=3, device=1, include_sine=False, incl
     if include_sine:
         for i in range(n):
             str_lib.append('sin(' + X[i] + ')')
-
-    if include_mult_sine:
-        for i in range(n):
-            str_lib.append(X[i] + 'sin(' + X[i] + ')')
 
     return str_lib  
 

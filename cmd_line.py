@@ -5,6 +5,9 @@ import argparse
 def parse_hyperparams():
     parser = argparse.ArgumentParser(description="Template")
 
+    # Just affects ESINDy
+    parser.add_argument('-NE', '--num_ensemble', default=25, type=int, help="Number of models in the ensemble.")
+
     # Just affects HyperSINDy
     parser.add_argument('-ST', '--soft_threshold', default=0.05, type=float, help="Soft threshold to 0 coefficient samples. 0 to disable.")
     parser.add_argument('-B', '--beta', default=1.0, type=float, help="KL divergence weight in loss (only for HyperSINDy)")
@@ -38,16 +41,16 @@ def parse_args():
 
     # saving specifics
     parser.add_argument('-sess', '--session_name', default='1', type=str, help="Appended to last part of file names")
-    parser.add_argument('-DAT', '--date', default="1-04-23", type=str, help="The date"),
+    parser.add_argument('-DAT', '--date', default="1-05-23", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="HyperSINDy", type=str, help="Model to use")
-    parser.add_argument('-DS', '--dataset', default="other_5d_lorenz", type=str, help="Which dataset to use (lorenz)")
-    parser.add_argument('-NOISET', '--noise_type', default='none', type=str, help='Type of state-dependent noise (x, sinz)')
+    parser.add_argument('-DS', '--dataset', default="lorenz", type=str, help="Which dataset to use (lorenz)")
+    parser.add_argument('-NOISET', '--noise_type', default='x', type=str, help='Type of state-dependent noise (x, sinz)')
     parser.add_argument('-NOISES', '--noise_scale', default=0.0, type=float, help='Scale of noise in data. Review data folder.')
 
     # sindy parameters
-    parser.add_argument('-Z', '--z_dim', default=5, type=int, help="Size of latent vector")
+    parser.add_argument('-Z', '--z_dim', default=3, type=int, help="Size of latent vector")
     parser.add_argument('-PO', '--poly_order', default=3, type=int, help="Size of theta library for SINDy")
-    parser.add_argument('-INCC', '--include_constant', default=False, type=bool, help="IFF True, includes sine in SINDy library")
+    parser.add_argument('-INCC', '--include_constant', default=True, type=bool, help="IFF True, includes sine in SINDy library")
     parser.add_argument('-INCS', '--include_sine', default=False, type=bool, help="IFF True, includes sine in SINDy library")
     
     # training parameters
