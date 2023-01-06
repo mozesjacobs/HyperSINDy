@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from src.utils.other import save_model
 from src.utils.exp_utils import sample_trajectory, sample_ensemble_trajectory, get_equations
-from src.utils.plotting import draw_equations, plot_trajectory
+from src.utils.plotting import plot_trajectory
 
 def train(net, args, hyperparams, optim, scheduler, trainloader, trainset, 
           board, cp_path, initial_epoch, device):
