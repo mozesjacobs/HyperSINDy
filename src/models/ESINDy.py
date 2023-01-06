@@ -16,6 +16,7 @@ class Net(nn.Module):
 
         self.hypernet_hidden_dim = hyperparams.hidden_dim
         self.num_ensemble = hyperparams.num_ensemble
+        self.prior = hyperparams.prior
 
         self.library_dim = library_size(self.z_dim, self.poly_order,
             include_constant=self.include_constant, use_sine=self.include_sine)

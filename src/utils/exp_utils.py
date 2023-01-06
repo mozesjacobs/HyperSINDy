@@ -61,7 +61,7 @@ def get_equations(net, model_type, device, z_dim, poly_order, include_constant, 
         equations.append("STD")
         update_equation_list(equations, library, std_coeffs, starts, z_dim)
     elif model_type == "SINDy":
-        sindy_coefs = net.sindy_coefficients * net.threshold_mask
+        sindy_coefs = net.get_masked_coefficients().detach().cpu().numpy()
         equations.append("SINDy")
         update_equation_list(equations, library, sindy_coefs, starts, z_dim)
     return equations
