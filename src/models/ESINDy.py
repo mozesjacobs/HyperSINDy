@@ -25,7 +25,7 @@ class Net(nn.Module):
             torch.ones(self.num_ensemble, self.library_dim, self.z_dim),
             requires_grad=True)
 
-        self.hard_threshold_mask = nn.Parameter(
+        self.threshold_mask = nn.Parameter(
             torch.ones(self.num_ensemble, self.library_dim, self.z_dim),
             requires_grad=False)
     
@@ -44,10 +44,10 @@ class Net(nn.Module):
         return torch.matmul(library.unsqueeze(2), coefs).squeeze(2)
 
     def get_masked_coefficients(self, n=None, batch_size=None, device=0):
-        return self.sindy_coeffs * self.threshold_mask
+        return self.sindy_coefs * self.threshold_mask
 
     def update_threshold_mask(self, threshold, device):
-        self.hard_threshold_mask[torch.abs(self.sindy_coefs) < threshold] = 0
+        self.threshold_mask[torch.abs(self.sindy_coefs) < threshold] = 0
 
     def make_library(self, x):
         return sindy_library(x, self.poly_order,

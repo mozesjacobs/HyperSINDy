@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 from src.utils.other import save_model
-from src.utils.exp_utils import sample_trajectory, get_equations
+from src.utils.exp_utils import sample_trajectory, sample_ensemble_trajectory, get_equations
 from src.utils.plotting import draw_equations, plot_trajectory
 
 def train(net, args, hyperparams, optim, scheduler, trainloader, trainset, 
@@ -137,13 +137,13 @@ def eval_model(net, args, board, trainset, device, epoch):
                             args.exp_batch_size, args.dt, args.exp_timesteps)
     elif args.model == "ESINDy":
         # sample trajectory
-        z = sample_ensemble_trajectory(net, device, trainset.x[0].numpy(),
+        z = sample_ensemble_trajectory(net, device, trainset.x_true[0].numpy(),
                             args.exp_batch_size, args.dt, args.exp_timesteps)
     else:
         print("ERROR: args.model must be HyperSINDy, SINDy, or ESINDy, not " + args.model + ".")
 
     # plot trajectory
-    plot_trajectory(board, epoch, trainset.x.numpy(), z)
+    plot_trajectory(board, epoch, trainset.x_true.numpy(), z)
 
     # get equations
     equations = get_equations(net, args.model, device,

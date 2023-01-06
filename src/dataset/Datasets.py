@@ -19,10 +19,12 @@ class SyntheticDataset(Dataset):
         if args.model == "ESINDy":
             # timesteps x num_ensemble x dim
             num_ensemble = hyperparams.num_ensemble
-            idx = torch.randint(0, x.size(0), (num_ensemble, x.size(0)))
+            idx = torch.randint(0, self.x.size(0), (num_ensemble, self.x.size(0)))
+            self.x_true = self.x
             self.x = self.build_ensemble(self.x, idx)
             self.x_dot = self.build_ensemble(self.x_dot, idx)
             self.x_lib = self.build_ensemble(self.x_lib, idx)
+            
 
     def __len__(self):
         return len(self.x)
