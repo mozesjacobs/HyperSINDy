@@ -59,10 +59,8 @@ def plot_trajectory(board, epoch, z_true, z_pred, figsize=None):
         elif z_dim == 5:
             if i == 0:
                 ax = fig.add_subplot(1, batch_size + 1, i + 1, projection='3d')
-                #ax.plot(z_true[:,1], z_true[:,2], z_true[:,3], color='red', label="GT")
                 ax.plot(z_true[:,0], z_true[:,1], z_true[:,2], color='red', label="GT")
             ax = fig.add_subplot(1, batch_size + 1, i + 2, projection='3d')
-            #ax.plot(z_pred[i, :,1], z_pred[i, :,2], z_pred[i, :,3], color='blue', label="Pred")
             ax.plot(z_pred[i, :,0], z_pred[i, :,1], z_pred[i, :,2], color='blue', label="Pred")
     fig.subplots_adjust(wspace=0.0, hspace=0.0)
     board.add_figure(tag="Samples", figure=fig, global_step=epoch, close=True,
