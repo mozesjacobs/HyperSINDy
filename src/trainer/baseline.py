@@ -32,8 +32,8 @@ def train(net, args, hyperparams, optim, scheduler, trainloader, trainset,
         initial_epoch: The int epoch to start training at (only affects logging
             of results).
         device: The cpu or gpu device to train the network on. To train on cpu,
-            device must be "cpu". To train on gpu, specify, the device number
-            as an integer (i.e.: 0 or 1 or 2 or 3). 
+            device must be "cpu". To train on gpu, specify which gpu to use as
+            an integer (i.e.: 0 or 1 or 2 or 3). 
 
     Returns:
         None
@@ -96,8 +96,8 @@ def train_epoch(net, model_type, trainloader, optim, beta, weight_decay,
         weight_decay: A float value denoting the strength of the regularization
             term in the SINDy or ESINDy loss function.
         device: The cpu or gpu device to train the network on. To train on cpu,
-            device must be "cpu". To train on gpu, specify, the device number
-            as an integer (i.e.: 0 or 1 or 2 or 3). 
+            device must be "cpu". To train on gpu, specify which gpu to use as
+            an integer (i.e.: 0 or 1 or 2 or 3). 
         clip: The float value to clip the gradients to during training (use
             None to disable gradient clipping).
         
@@ -148,8 +148,8 @@ def train_hyper(net, optim, x, x_lib, x_dot, beta, device, clip):
         beta: A float value denoting the strength of the KL divergence term in
             the HyperSINDy loss function.
         device: The cpu or gpu device to train the network on. To train on cpu,
-            device must be "cpu". To train on gpu, specify, the device number
-            as an integer (i.e.: 0 or 1 or 2 or 3).
+            device must be "cpu". To train on gpu, specify which gpu to use as
+            an integer (i.e.: 0 or 1 or 2 or 3).
         clip: The float value to clip the gradients to during training (use
             None to disable gradient clipping).
         
@@ -188,8 +188,8 @@ def train_ensemble(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
         weight_decay: A float value denoting the strength of the regularization
             term in the ensemble loss function.
         device: The cpu or gpu device to train the network on. To train on cpu,
-            device must be "cpu". To train on gpu, specify, the device number
-            as an integer (i.e.: 0 or 1 or 2 or 3).
+            device must be "cpu". To train on gpu, specify which gpu to use as
+            an integer (i.e.: 0 or 1 or 2 or 3).
         clip: The float value to clip the gradients to during training (use
             None to disable gradient clipping).
         
@@ -202,10 +202,10 @@ def train_ensemble(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
     recon = ((x_dot_pred - x_dot) ** 2).sum(2).mean()
     if net.prior == 'normal':
         reg = (sindy_coeffs ** 2).sum((1, 2)).mean() * weight_decay
-    elif net.prior == 'lasso':
+    elif net.prior == 'laplace':
         reg = torch.abs(sindy_coeffs).sum((1, 2)).mean() * weight_decay
     else:
-        print("ERROR: net.prior must be normal or lasso, not " + str(net.prior))
+        print("ERROR: net.prior must be normal or laplace, not " + str(net.prior))
         exit()
     loss = recon + reg
     optim.zero_grad()
@@ -233,8 +233,8 @@ def train_sindy(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
         weight_decay: A float value denoting the strength of the regularization
             term in the SINDy loss function.
         device: The cpu or gpu device to train the network on. To train on cpu,
-            device must be "cpu". To train on gpu, specify, the device number
-            as an integer (i.e.: 0 or 1 or 2 or 3).
+            device must be "cpu". To train on gpu, specify which gpu to use as
+            an integer (i.e.: 0 or 1 or 2 or 3).
         clip: The float value to clip the gradients to during training (use
             None to disable gradient clipping).
         
@@ -247,10 +247,10 @@ def train_sindy(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
     recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
     if net.prior == 'normal':
         reg = (sindy_coeffs ** 2).sum((0, 1)) * weight_decay
-    elif net.prior == 'lasso':
+    elif net.prior == 'laplace':
         reg = torch.abs(sindy_coeffs).sum((0, 1)) * weight_decay
     else:
-        print("ERROR: net.prior must be normal or lasso, not " + str(net.prior))
+        print("ERROR: net.prior must be normal or laplace, not " + str(net.prior))
         exit()
     loss = recon + reg
     optim.zero_grad()
@@ -280,8 +280,8 @@ def update_threshold_mask(net, model_type, threshold, threshold_timer, epoch, de
         epoch: The current epoch (int) during training. If 
             epoch % threshold_timer != 0, will not threshold.
         device: The cpu or gpu device to train the network on. To train on cpu,
-            device must be "cpu". To train on gpu, specify, the device number
-            as an integer (i.e.: 0 or 1 or 2 or 3). 
+            device must be "cpu". To train on gpu, specify which gpu to use as
+            an integer (i.e.: 0 or 1 or 2 or 3). 
         beta: A float value denoting the strength of the KL divergence term in
             the HyperSINDy loss function.
         beta_max: The maximum beta value to be reached during training. For
@@ -360,8 +360,8 @@ def eval_model(net, args, board, trainset, device, epoch):
         board: The tensorboard SummaryWriter to log results with.
         trainset: The torch dataset to evaluate the model on.
         device: The cpu or gpu device to train the network on. To train on cpu,
-            device must be "cpu". To train on gpu, specify, the device number
-            as an integer (i.e.: 0 or 1 or 2 or 3). 
+            device must be "cpu". To train on gpu, specify which gpu to use as
+            an integer (i.e.: 0 or 1 or 2 or 3). 
         epoch: An int representing the current epoch during training.
             
     Returns:
