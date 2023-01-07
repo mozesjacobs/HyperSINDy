@@ -5,6 +5,42 @@ from src.utils.model_utils import library_size, sindy_library
 
 
 class Net(nn.Module):
+    """A HyperSINDy model.
+
+    The HyperSINDy model that uses a hypernetwork to output SINDy coefficients.
+
+    Attributes:
+        self.z_dim: The spatial dimension (int) of the data.
+        self.poly_order: The order (int) of the polynomials in the data.
+        self.include_constant: Iff True (bool), a constant term is included in
+            the SINDy library.
+        self.include_sine: Iff True (bool), sine is included in the SINDy
+            library.
+        self.statistic_batch_size: An integer indicating the default number of
+            samples to draw when sampling coefficients if not specified.
+        self.prior_type: A string denoting what type of prior should be imposed
+            on the SINDy coefficents. Options: {"normal", "laplace"}. The
+            option "normal" refers to N(0,1) KLD regularization, while
+            "laplace" refers to using a laplace distribution with loc = 0 and
+            scale = 1 instead.
+        self.hypernet_hidden_dim: An int of the size of the Linear layers in
+            the hypernetwork.
+        self.noise_dim: An int of the size of the random noise input to the
+            hypernetwork.
+        self.library_dim: The number (int) of terms in the SINDy library.
+        self.hyperent: A HyperNet (from HyperNet.py) that generates
+            coefficients using random noise.
+        self.soft_threshold: Sampled coefficients whose absolute value is less
+            than this (float) value are set to 0.
+        self.hard_threshold_mask: A torch.Tensor of shape (library_dim x z_dim) 
+            used to permanently zero out SINDy coefficients.
+        self.prior: If self.prior_type == "laplace", a
+            torch.distribution.Laplace object with loc = 0 and scale = 1 to
+            generate samples with. If self.prior_type != "laplace",
+            self.prior = None, since no generator object is required. Instead,
+            N(0, 1) noise is used.
+    """
+
     def __init__(self, args, hyperparams):
         super(Net, self).__init__()
         
@@ -31,9 +67,30 @@ class Net(nn.Module):
                 torch.zeros([self.library_dim * self.z_dim]),
                 torch.ones([self.library_dim * self.z_dim])
             )
+        else:
+            self.prior = None
         
         
     def forward(self, x, x_lib=None, device=0):
+        """Runs the forward pass.
+
+        Runs the forward pass, calculating the derivatives using randomly
+        sampled coefficients from the hypernetwork.
+
+        Args:
+            x: The data (torch.Tensor of shape (batch_size x z_dim)) to
+                calculate derivatives with.
+            x_lib: The sindy_library form of x. Default is None. If None,
+                creates a SINDy library out of x.
+            device: The cpu or gpu device to do calculations with. To use cpu,
+                device must be "cpu". To use gpu, specify which gpu to use as
+                an integer (i.e.: 0 or 1 or 2 or 3). 
+        
+        Returns:
+            A tuple of (tensor_a and tensor_b), where tensor_a is the
+            calculated derivative as a torch.Tensor, and tensor_b are the
+            SINDy coefficients (as a torch.Tensor) used to do the calculation.
+        """
         x = x.type(torch.FloatTensor).to(device)
         if x_lib is None:
             x_lib = sindy_library(x, self.poly_order,
@@ -46,6 +103,17 @@ class Net(nn.Module):
         return self.dx(x_lib, coeffs), coeffs
     
     def dx(self, library, coefs):
+        """Calculate the derivative.
+
+        Given the library terms and the SINDy coefficients, calculate the
+        derivative.
+
+        Args:
+            library: The SINDy library terms as a torch.Tensor of shape
+                (batch_size x library_dim).
+            coefs: The SINDy coefficients as a torch.Tensor of shape
+                (batch_size x library_dim x z_dim).
+        """
         return torch.bmm(library.unsqueeze(1), coefs).squeeze(1)
 
     def sample_coeffs(self, n=None, batch_size=None, device=0):
