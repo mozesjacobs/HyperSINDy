@@ -160,7 +160,7 @@ def train_hyper(net, optim, x, x_lib, x_dot, beta, device, clip):
     """"
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
     recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
-    kld = net.kl(sindy_coeffs)
+    kld = net.kl(sindy_coeffs.size(0), device)
     loss = recon + kld * beta
     optim.zero_grad()
     loss.backward()

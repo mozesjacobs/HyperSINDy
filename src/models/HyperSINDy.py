@@ -28,7 +28,7 @@ class Net(nn.Module):
         self.noise_dim: An int of the size of the random noise input to the
             hypernetwork.
         self.library_dim: The number (int) of terms in the SINDy library.
-        self.hyperent: A HyperNet (from HyperNet.py) that generates
+        self.hypernet: A HyperNet (from HyperNet.py) that generates
             coefficients using random noise.
         self.soft_threshold: Sampled coefficients whose absolute value is less
             than this (float) value are set to 0.
@@ -42,6 +42,19 @@ class Net(nn.Module):
     """
 
     def __init__(self, args, hyperparams):
+        """Initalizes the network.
+
+        Initializes the HyperSINDy network using the given args and hyperparameters.
+
+        Args:
+            args: The argparser object return by parse_args() in the file
+                cmd_line.py.
+            hyperparams: The argparser object returned by parse_hyperparams() in 
+                the file cmd_line.py
+
+        Returns:
+            A Net().
+        """
         super(Net, self).__init__()
         
         self.z_dim = args.z_dim
@@ -90,6 +103,8 @@ class Net(nn.Module):
             A tuple of (tensor_a and tensor_b), where tensor_a is the
             calculated derivative as a torch.Tensor, and tensor_b are the
             SINDy coefficients (as a torch.Tensor) used to do the calculation.
+            The shape of tensor_a is: (batch_size x z_dim).
+            The shape of tensor_b is: (batch_size x library_dim x z_dim).
         """
         x = x.type(torch.FloatTensor).to(device)
         if x_lib is None:
@@ -113,10 +128,33 @@ class Net(nn.Module):
                 (batch_size x library_dim).
             coefs: The SINDy coefficients as a torch.Tensor of shape
                 (batch_size x library_dim x z_dim).
+
+        Returns:
+            The calculated derivatives as a torch.Tensor of shape
+            (batch_szie x z_dim).
         """
         return torch.bmm(library.unsqueeze(1), coefs).squeeze(1)
 
     def sample_coeffs(self, n=None, batch_size=None, device=0):
+        """Samples coefficients.
+
+        Samples coefficients from the hypernetwork.
+
+        Args:
+            n: The torch.Tensor to feed into the hypernetwork. Should be random
+                N(0, 1) noise. If None, samples from a N(0, 1) distribution.
+            batch_size: If n is None, samples a vector of shape 
+                (batch_size x self.noise_dim) from a N(0, 1) distribution.
+            device: If n is None, the sampled noise vector uses this 
+                cpu or gpu device. To use cpu, device must be "cpu". To use
+                gpu, specify which gpu to use as an integer (i.e.: 0 or 1 or 2
+                or 3). 
+
+        Returns:
+            Sampled SINDy coefficients as a torch.Tensor of shape
+            (n.size(0) x self.noise_dim), or if n is None, of shape
+            (batch_size x self.noise_dim).
+        """
         if batch_size is None:
             batch_size = self.statistic_batch_size
         if n is None:
@@ -124,19 +162,69 @@ class Net(nn.Module):
         return self.hypernet(n)
 
     def get_masked_coefficients(self, n=None, batch_size=None, device=0):
+        """Samples thresholded coefficients (masked coefficients).
+
+        Samples coefficients from the hypernetwork and thresholds them with
+        the soft threshold and the hard threshold mask.
+
+        Args:
+            n: The torch.Tensor to feed into the hypernetwork. Should be random
+                N(0, 1) noise. If None, samples from a N(0, 1) distribution.
+            batch_size: If n is None, samples a vector of shape 
+                (batch_size x self.noise_dim) from a N(0, 1) distribution.
+            device: If n is None, the sampled noise vector uses this 
+                cpu or gpu device. To use cpu, device must be "cpu". To use
+                gpu, specify which gpu to use as an integer (i.e.: 0 or 1 or 2
+                or 3). 
+
+        Returns:
+            Sampled SINDy coefficients as a torch.Tensor of shape
+            (n.size(0) x self.noise_dim), or if n is None, of shape
+            (batch_size x self.noise_dim).
+        """
         coefs = self.sample_coeffs(n, batch_size, device)
         soft_mask = torch.abs(coefs) > self.soft_threshold
         return coefs * soft_mask * self.hard_threshold_mask
 
     def update_threshold_mask(self, threshold, device):
+        """Updates the threshold mask.
+
+        Samples coefficients using self.get_masked_coefficients. Gets the
+        indices of any SINDy coefficients that are less than the given
+        threshold. Sets self.threshold_mask[indices] = 0.
+
+        Args:
+            threshold: The threshold (float) to use.
+            device: The cpu or gpu device to sample coefficients with. To use
+                cpu, device must be "cpu". To use gpu, specify which gpu to
+                use as an integer (i.e.: 0 or 1 or 2 or 3). 
+        
+        Returns:
+            None
+        """
         if threshold is not None:
             coefs = torch.mean(self.get_masked_coefficients(device=device), dim=0)
             self.hard_threshold_mask[torch.abs(coefs) < threshold] = 0
     
     # KL function taken from:
     # https://github.com/pawni/BayesByHypernet_Pytorch/blob/master/model.py
-    def kl(self, sindy_coeffs):
-        num_samples, device = sindy_coeffs.size(0), sindy_coeffs.device
+    def kl(self, num_samples, device):
+        """Calculates the KL divergence of the coefficients.
+
+        Samples SINDy coefficients and then calculates the KL divergence
+        between those coefficients and the networks prior.
+
+        Args:
+            num_samples: The (int) batch size of the coefficients to sample.
+            device: The cpu or gpu device to sample coefficients with. To use
+                cpu, device must be "cpu". To use gpu, specify which gpu to
+                use as an integer (i.e.: 0 or 1 or 2 or 3).
+
+        Returns:
+            The KL divergence (as a torch.FloatTensor of shape (,)), with
+            a mean over the batch dimension and sum over the other dimensions.
+        """
+        #num_samples, device = sindy_coeffs.size(0), sindy_coeffs.device
         #masked_coeffs = sindy_coeffs.reshape(num_samples, -1) # 250 x 60
         #gen_weights = masked_coeffs.transpose(1, 0) # 60 x 250
         coefs = self.sample_coeffs(batch_size=num_samples, device=device)
