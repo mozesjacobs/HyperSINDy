@@ -108,9 +108,7 @@ class Net(nn.Module):
         """
         x = x.type(torch.FloatTensor).to(device)
         if x_lib is None:
-            x_lib = sindy_library(x, self.poly_order,
-                                  include_constant=self.include_constant,
-                                  include_sine=self.include_sine)
+            x_lib = self.make_library(x)
         else:
             x_lib = x_lib.type(torch.FloatTensor).to(device)
 
@@ -256,3 +254,19 @@ class Net(nn.Module):
         kl *= gen_weights.shape[0]
         kl += torch.log(torch.tensor(float(num_samples) / (num_samples - 1)))
         return kl
+
+    def make_library(self, x):
+        """Constructs a SINDy library.
+
+        Creates a SINDy library out of the given tensor.
+
+        Args:
+            The torch.Tensor (batch_size x z_dim) to construct
+            a SINDy library with.
+
+        Returns:
+            A torch.Tensor of shape (batch_size x z_dim).
+        """
+        return sindy_library(x, self.poly_order,
+                             include_constant=self.include_constant,
+                             include_sine=self.include_sine)

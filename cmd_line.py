@@ -25,7 +25,7 @@ def parse_hyperparams():
     parser.add_argument('-BS', '--batch_size', default=250, type=float, help="Batch size")
     parser.add_argument('-AR', '--adam_reg', default=0, type=float, help="Regularization to use in ADAM optimizer")
     parser.add_argument('-C', '--clip', default=1.0, type=float, help="Gradient clipping value during training (None for no clipping)")
-    parser.add_argument('-P', '--prior', default="lasso", type=str, help="Prior to regularize to. Options: laplace, normal. For SINDy, uses L1 or L2 norm, respectively. For HyperSINDy, affects KL.")
+    parser.add_argument('-P', '--prior', default="laplace", type=str, help="Prior to regularize to. Options: laplace, normal. For SINDy, uses L1 or L2 norm, respectively. For HyperSINDy, affects KL.")
     return parser.parse_args()
 
 
@@ -40,8 +40,8 @@ def parse_args():
     parser.add_argument('-TB', '--tensorboard_folder', default='./runs/experiments/', type=str, help="Output folder for tensorboard")
 
     # saving specifics
-    parser.add_argument('-sess', '--session_name', default='1', type=str, help="Appended to last part of file names")
-    parser.add_argument('-DAT', '--date', default="1-06-23", type=str, help="The date"),
+    parser.add_argument('-sess', '--session_name', default='debug', type=str, help="Appended to last part of file names")
+    parser.add_argument('-DAT', '--date', default="01-09-23", type=str, help="The date"),
     parser.add_argument('-M',  '--model', default="SINDy", type=str, help="Model to use")
     parser.add_argument('-DS', '--dataset', default="other_5d_lorenz", type=str, help="Which dataset to use (lorenz)")
     parser.add_argument('-NOISET', '--noise_type', default='none', type=str, help='Type of state-dependent noise (x, sinz)')

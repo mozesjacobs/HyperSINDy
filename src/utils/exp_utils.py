@@ -39,14 +39,16 @@ def sample_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
     zs = torch.transpose(zs, 0, 1)
     return zs.detach().cpu().numpy()
 
-def sample_ensemble_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000):
-    """Generates trajectories.
+def generate_mean_trajectory(net, coefs, device, x0, batch_size=10, dt=1e-2, ts=5000):
+    """Generates a trajectory using the given equations.
 
     Generates the given number of trajectories from the given initial condition
-    using the mean of the equations discovered by the given network (ESINDy).
+    using the given coefficients.
 
     Args:
-        net: The ESINDy network (nn.Module) to generate trajectories with.
+        net: The network (nn.Module) to generate trajectories with.
+        coefs: The coefficients (torch.Tensor of shape
+            (batch_size x library_dim x z_dim)) to generate a trajectory with.
         device: The cpu or gpu device to generate trajetories with. If cpu,
             device must be the str "cpu". If gpu, device must be an int
             indicating which gpu to use (i.e. 0 or 1 or 2 or 3).
@@ -60,10 +62,9 @@ def sample_ensemble_trajectory(net, device, x0, batch_size=10, dt=1e-2, ts=5000)
         The generated trajectory as a numpy array of shape
         (batch_size x ts x z_dim).
     """
-    zc = torch.from_numpy(x0).type(torch.FloatTensor).to(device)
-    zc = torch.stack([zc for _ in range(batch_size)], dim=0)
+    zc = torch.from_numpy(x0).type(torch.FloatTensor).to(device).unsqueeze(0)
+    #zc = torch.stack([zc for _ in range(batch_size)], dim=0)
     zs = []
-    coefs = net.get_masked_coefficients().mean(0)
     for i in range(ts):
         lib = net.make_library(zc)
         zc = zc + torch.matmul(lib, coefs) * dt

@@ -75,9 +75,7 @@ class Net(nn.Module):
         """
         x = x.type(torch.FloatTensor).to(device)
         if x_lib is None:
-            x_lib = sindy_library(x, self.poly_order,
-                                  include_constant=self.include_constant,
-                                  include_sine=self.include_sine)
+            x_lib = self.make_library(x)
         else:
             x_lib = x_lib.type(torch.FloatTensor).to(device)
         coefs = self.get_masked_coefficients()
@@ -124,3 +122,19 @@ class Net(nn.Module):
             None
         """
         self.threshold_mask[torch.abs(self.sindy_coefficients) < threshold] = 0
+
+    def make_library(self, x):
+        """Constructs a SINDy library.
+
+        Creates a SINDy library out of the given tensor.
+
+        Args:
+            The torch.Tensor (batch_size x z_dim) to construct
+            a SINDy library with.
+
+        Returns:
+            A torch.Tensor of shape (batch_size x z_dim).
+        """
+        return sindy_library(x, self.poly_order,
+                             include_constant=self.include_constant,
+                             include_sine=self.include_sine)

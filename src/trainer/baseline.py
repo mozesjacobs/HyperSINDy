@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 from src.utils.other import save_model
-from src.utils.exp_utils import sample_trajectory, sample_ensemble_trajectory, get_equations
+from src.utils.exp_utils import sample_trajectory, generate_mean_trajectory, get_equations
 from src.utils.plotting import plot_trajectory
 
 def train(net, args, hyperparams, optim, scheduler, trainloader, trainset, 
@@ -157,7 +157,7 @@ def train_hyper(net, optim, x, x_lib, x_dot, beta, device, clip):
         A tuple (float_a, float_b) where float_a is the the derivative
         calculation loss over the given data batch and float_b is the KL
         divergence term in the loss function.
-    """"
+    """
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
     recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
     kld = net.kl(sindy_coeffs.size(0), device)
@@ -197,7 +197,7 @@ def train_ensemble(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
         A tuple (float_a, float_b) where float_a is the the derivative
         calculation loss over the given data batch and float_b is the
         regularization term in the loss function.
-    """"
+    """
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
     recon = ((x_dot_pred - x_dot) ** 2).sum(2).mean()
     if net.prior == 'normal':
@@ -242,7 +242,7 @@ def train_sindy(net, optim, x, x_lib, x_dot, weight_decay, device, clip):
         A tuple (float_a, float_b) where float_a is the the derivative
         calculation loss over the given data batch and float_b is the
         regularization term in the loss function.
-    """"
+    """
     x_dot_pred, sindy_coeffs = net(x, x_lib, device)
     recon = ((x_dot_pred - x_dot) ** 2).sum(1).mean()
     if net.prior == 'normal':
@@ -350,8 +350,8 @@ def update_beta(beta, beta_increment, beta_max):
 def eval_model(net, args, board, trainset, device, epoch):
     """Evaluates the network.
 
-    Generates sample trajectories and logs them in tensorboard. Logs
-    the current discovered equations in tensorboard.
+    Generates sample trajectories and mean trajectories and logs them in
+    tensorboard. Logs the current discovered equations in tensorboard.
 
     Args:
         net: The network (subclass of nn.Module()) to be evaluated.
@@ -367,20 +367,33 @@ def eval_model(net, args, board, trainset, device, epoch):
     Returns:
         None
     """
-    if args.model == "HyperSINDy" or args.model == "SINDy":
+
+    # Sample trajectory
+    if args.model == "HyperSINDy":
         # sample trajectory
         z = sample_trajectory(net, device, trainset.x[0].numpy(),
                               args.exp_batch_size, args.dt, args.exp_timesteps)
         # plot trajectory
         plot_trajectory(board, epoch, trainset.x.numpy(), z)
+    # TODO: write ESINDy sample trajectory
     elif args.model == "ESINDy":
-        # sample trajectory
-        z = sample_ensemble_trajectory(net, device, trainset.x_true[0].numpy(),
-                            args.exp_batch_size, args.dt, args.exp_timesteps)
-        # plot trajectory
-        plot_trajectory(board, epoch, trainset.x_true.numpy(), z)
-    else:
-        print("ERROR: args.model must be HyperSINDy, SINDy, or ESINDy, not " + args.model + ".")
+        pass
+
+    # Get mean equations
+    if args.model == "HyperSINDy":
+        coefs = net.get_masked_coefficients(device=args.device).mean(0)
+    elif args.model == "ESINDy":
+        coefs = net.get_masked_coefficients().mean(0)
+    elif args.model == "SINDy":
+        coefs = net.get_masked_coefficients()
+
+    # Get trajectory from mean equations
+    z = generate_mean_trajectory(net, coefs, device, trainset.x_true[0].numpy(),
+                                 args.exp_batch_size, args.dt,
+                                 args.exp_timesteps)
+    
+    # Plot trajectory
+    plot_trajectory(board, epoch, trainset.x_true.numpy(), z, tag="Mean Equation Trajectory", figsize=(5, 5))
 
     
     # get equations

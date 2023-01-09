@@ -54,7 +54,7 @@ def draw_equations(board, epoch, equations, z_dim):
                      walltime=None)
 
 
-def plot_trajectory(board, epoch, z_true, z_pred, figsize=None):
+def plot_trajectory(board, epoch, z_true, z_pred, figsize=None, tag="Samples"):
     """Plots the trajectories.
 
     Plots the given ground truth and predicted trajectories, then adds the
@@ -80,13 +80,15 @@ def plot_trajectory(board, epoch, z_true, z_pred, figsize=None):
             (batch_size x timesteps x z_dim)
         figsize: The size of the figure (float, float) to plot. Default is
             None. If None, sets figsize to (batch_size x 3.5).
+        tag: The string label of the figure in the SummaryWriter. The default
+            is: samples.
 
     Returns:
         None
     """
     batch_size, T, z_dim = z_pred.shape
     if figsize is None:
-        fig = plt.figure(figsize=(batch_size, 3.5), dpi=300)
+        fig = plt.figure(figsize=(batch_size + 1, 3.5), dpi=300)
     else:
         fig = plt.figure(figsize=figsize, dpi=300)
     for i in range(batch_size):
@@ -115,5 +117,5 @@ def plot_trajectory(board, epoch, z_true, z_pred, figsize=None):
             ax = fig.add_subplot(1, batch_size + 1, i + 2, projection='3d')
             ax.plot(z_pred[i, :,0], z_pred[i, :,1], z_pred[i, :,2], color='blue', label="Pred")
     fig.subplots_adjust(wspace=0.0, hspace=0.0)
-    board.add_figure(tag="Samples", figure=fig, global_step=epoch, close=True,
+    board.add_figure(tag=tag, figure=fig, global_step=epoch, close=True,
                      walltime=None)
